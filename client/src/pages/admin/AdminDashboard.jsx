@@ -1,0 +1,178 @@
+import { useEffect, useMemo, useState } from "react";
+import { Download, Upload } from "lucide-react";
+import { api } from "../../api/client";
+import { Badge } from "../../components/Badge";
+import { StatCard } from "../../components/StatCard";
+import { AppLayout } from "../../layouts/AppLayout";
+import { formatDate, todayInputValue } from "../../utils/format";
+
+export function AdminDashboard() {
+  const [summary, setSummary] = useState(null);
+  const [salesUsers, setSalesUsers] = useState([]);
+  const [leads, setLeads] = useState([]);
+  const [quotas, setQuotas] = useState([]);
+  const [date, setDate] = useState(todayInputValue());
+  const [selectedUser, setSelectedUser] = useState("");
+  const [callsTarget, setCallsTarget] = useState(10);
+  const [leadsTarget, setLeadsTarget] = useState(8);
+  const [file, setFile] = useState(null);
+  const [notice, setNotice] = useState("");
+
+  const selectedQuota = useMemo(() => quotas.find((quota) => quota.salesUserId === selectedUser), [quotas, selectedUser]);
+
+  async function loadData() {
+    const [summaryRes, usersRes, leadsRes, quotasRes] = await Promise.all([
+      api.get("/admin/summary"),
+      api.get("/admin/sales-users"),
+      api.get("/admin/leads"),
+      api.get("/admin/quotas", { params: { date } })
+    ]);
+    setSummary(summaryRes.data);
+    setSalesUsers(usersRes.data.users);
+    setLeads(leadsRes.data.leads);
+    setQuotas(quotasRes.data.quotas);
+    if (!selectedUser && usersRes.data.users[0]) setSelectedUser(usersRes.data.users[0].id);
+  }
+
+  useEffect(() => {
+    loadData().catch((error) => setNotice(error.response?.data?.message || "Could not load dashboard"));
+  }, [date]);
+
+  useEffect(() => {
+    if (selectedQuota) {
+      setCallsTarget(selectedQuota.callsTarget);
+      setLeadsTarget(selectedQuota.leadsTarget);
+    }
+  }, [selectedQuota]);
+
+  async function saveQuota(event) {
+    event.preventDefault();
+    setNotice("");
+    await api.post("/admin/quotas", { salesUserId: selectedUser, date, callsTarget, leadsTarget });
+    setNotice("Quota saved.");
+    await loadData();
+  }
+
+  async function uploadCsv(event) {
+    event.preventDefault();
+    if (!file) return setNotice("Choose a CSV file first.");
+    const form = new FormData();
+    form.append("file", file);
+    const { data } = await api.post("/admin/leads/upload", form);
+    setNotice(`Imported ${data.imported} leads.`);
+    setFile(null);
+    await loadData();
+  }
+
+  function exportReport() {
+    const token = localStorage.getItem("etcrm_token");
+    window.open(`http://127.0.0.1:4000/api/admin/reports/export?token=${token}`, "_blank");
+  }
+
+  async function downloadReport() {
+    const response = await api.get("/admin/reports/export", { responseType: "blob" });
+    const url = URL.createObjectURL(new Blob([response.data]));
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "agent-performance.csv";
+    link.click();
+    URL.revokeObjectURL(url);
+  }
+
+  return (
+    <AppLayout title="Admin Dashboard" subtitle="Manage leads, quotas, and performance exports.">
+      <div className="grid gap-4 md:grid-cols-5">
+        <StatCard label="Total Leads" value={summary?.leads ?? "-"} tone="forest" />
+        <StatCard label="Sales Agents" value={summary?.salesUsers ?? "-"} />
+        <StatCard label="Follow-Ups" value={summary?.followUps ?? "-"} />
+        <StatCard label="Closed Won" value={summary?.won ?? "-"} tone="gold" />
+        <StatCard label="Closed Lost" value={summary?.lost ?? "-"} tone="coral" />
+      </div>
+
+      {notice ? <div className="mt-5 rounded border border-line bg-white p-3 text-sm text-forest">{notice}</div> : null}
+
+      <div className="mt-6 grid gap-6 lg:grid-cols-[1fr_1fr]">
+        <section className="rounded-lg border border-line bg-white p-5 shadow-soft">
+          <h2 className="text-lg font-bold">Bulk Upload Leads</h2>
+          <p className="mt-1 text-sm text-neutral-500">CSV columns: Full Name, Phone Number, Email, optional Phase.</p>
+          <form onSubmit={uploadCsv} className="mt-4 flex flex-col gap-3 sm:flex-row">
+            <input
+              type="file"
+              accept=".csv"
+              onChange={(event) => setFile(event.target.files?.[0] || null)}
+              className="w-full rounded border border-line px-3 py-2 text-sm"
+            />
+            <button className="inline-flex items-center justify-center gap-2 rounded bg-forest px-4 py-2 font-semibold text-white" type="submit">
+              <Upload size={18} />
+              Upload
+            </button>
+          </form>
+        </section>
+
+        <section className="rounded-lg border border-line bg-white p-5 shadow-soft">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <h2 className="text-lg font-bold">Reporting</h2>
+              <p className="mt-1 text-sm text-neutral-500">Export agent performance metrics as CSV.</p>
+            </div>
+            <button onClick={downloadReport} className="inline-flex items-center gap-2 rounded border border-line px-4 py-2 font-semibold hover:bg-neutral-50">
+              <Download size={18} />
+              Export
+            </button>
+          </div>
+        </section>
+      </div>
+
+      <section className="mt-6 rounded-lg border border-line bg-white p-5 shadow-soft">
+        <h2 className="text-lg font-bold">Quota Management</h2>
+        <form onSubmit={saveQuota} className="mt-4 grid gap-3 md:grid-cols-[1.4fr_1fr_1fr_1fr_auto]">
+          <select value={selectedUser} onChange={(event) => setSelectedUser(event.target.value)} className="rounded border border-line px-3 py-2">
+            {salesUsers.map((user) => (
+              <option key={user.id} value={user.id}>
+                {user.name}
+              </option>
+            ))}
+          </select>
+          <input value={date} onChange={(event) => setDate(event.target.value)} type="date" className="rounded border border-line px-3 py-2" />
+          <input value={callsTarget} onChange={(event) => setCallsTarget(event.target.value)} type="number" min="0" className="rounded border border-line px-3 py-2" />
+          <input value={leadsTarget} onChange={(event) => setLeadsTarget(event.target.value)} type="number" min="0" className="rounded border border-line px-3 py-2" />
+          <button className="rounded bg-ink px-4 py-2 font-semibold text-white">Save</button>
+        </form>
+      </section>
+
+      <section className="mt-6 overflow-hidden rounded-lg border border-line bg-white shadow-soft">
+        <div className="flex items-center justify-between border-b border-line p-5">
+          <h2 className="text-lg font-bold">Recent Leads</h2>
+          <span className="text-sm text-neutral-500">{leads.length} shown</span>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[760px] text-left text-sm">
+            <thead className="bg-neutral-50 text-xs uppercase text-neutral-500">
+              <tr>
+                <th className="px-5 py-3">Lead</th>
+                <th className="px-5 py-3">Phone</th>
+                <th className="px-5 py-3">Phase</th>
+                <th className="px-5 py-3">Assigned</th>
+                <th className="px-5 py-3">Follow-Up</th>
+              </tr>
+            </thead>
+            <tbody>
+              {leads.map((lead) => (
+                <tr key={lead.id} className="border-t border-line">
+                  <td className="px-5 py-3">
+                    <p className="font-semibold">{lead.fullName}</p>
+                    <p className="text-neutral-500">{lead.email}</p>
+                  </td>
+                  <td className="px-5 py-3">{lead.phoneNumber}</td>
+                  <td className="px-5 py-3"><Badge phase={lead.phase} /></td>
+                  <td className="px-5 py-3">{lead.assignedTo?.name || "Unassigned"}</td>
+                  <td className="px-5 py-3">{formatDate(lead.followUpDate)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </AppLayout>
+  );
+}
