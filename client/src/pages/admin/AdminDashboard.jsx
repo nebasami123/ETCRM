@@ -94,11 +94,11 @@ export function AdminDashboard() {
       <div className="mt-6 grid gap-6 lg:grid-cols-[1fr_1fr]">
         <section className="rounded-lg border border-line bg-white p-5 shadow-soft">
           <h2 className="text-lg font-bold">Bulk Upload Leads</h2>
-          <p className="mt-1 text-sm text-neutral-500">CSV columns: Full Name, Phone Number, Email, optional Phase.</p>
+          <p className="mt-1 text-sm text-neutral-500">Upload CSV or Excel. Real-estate columns are saved as extra lead fields.</p>
           <form onSubmit={uploadCsv} className="mt-4 flex flex-col gap-3 sm:flex-row">
             <input
               type="file"
-              accept=".csv"
+              accept=".csv,.xlsx,.xls"
               onChange={(event) => setFile(event.target.files?.[0] || null)}
               className="w-full rounded border border-line px-3 py-2 text-sm"
             />
@@ -151,8 +151,11 @@ export function AdminDashboard() {
               <tr>
                 <th className="px-5 py-3">Lead</th>
                 <th className="px-5 py-3">Phone</th>
+                <th className="px-5 py-3">License</th>
+                <th className="px-5 py-3">Region</th>
                 <th className="px-5 py-3">Phase</th>
                 <th className="px-5 py-3">Assigned</th>
+                <th className="px-5 py-3">Appointment</th>
                 <th className="px-5 py-3">Follow-Up</th>
               </tr>
             </thead>
@@ -164,8 +167,11 @@ export function AdminDashboard() {
                     <p className="text-neutral-500">{lead.email}</p>
                   </td>
                   <td className="px-5 py-3">{lead.phoneNumber}</td>
+                  <td className="px-5 py-3">{lead.licenceNumber || "-"}</td>
+                  <td className="px-5 py-3">{lead.businessRegion || "-"}</td>
                   <td className="px-5 py-3"><Badge phase={lead.phase} /></td>
                   <td className="px-5 py-3">{lead.assignedTo?.name || "Unassigned"}</td>
+                  <td className="px-5 py-3">{formatDate(lead.appointmentDate)}</td>
                   <td className="px-5 py-3">{formatDate(lead.followUpDate)}</td>
                 </tr>
               ))}

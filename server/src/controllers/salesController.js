@@ -5,6 +5,9 @@ import { endOfDay, startOfDay } from "../utils/dates.js";
 
 const phaseSchema = z.object({ phase: z.nativeEnum(LeadPhase) });
 const noteSchema = z.object({ note: z.string().min(2) });
+const appointmentSchema = z.object({
+  appointmentDate: z.string().nullable().optional()
+});
 
 async function ensureAssignedLead(leadId, userId) {
   return prisma.lead.findFirst({
@@ -36,9 +39,9 @@ export async function dashboard(req, res, next) {
       prisma.lead.findMany({
         where: {
           assignedToId: userId,
-          OR: [{ followUpDate: { gte: today, lte: tomorrow } }, { phase: LeadPhase.NEW }]
+          OR: [{ followUpDate: { gte: today, lte: tomorrow } }, { appointmentDate: { gte: today, lte: tomorrow } }, { phase: LeadPhase.NEW }]
         },
-        orderBy: [{ followUpDate: "asc" }, { createdAt: "desc" }]
+        orderBy: [{ appointmentDate: "asc" }, { followUpDate: "asc" }, { createdAt: "desc" }]
       }),
       prisma.lead.groupBy({
         by: ["phase"],
@@ -126,6 +129,41 @@ export async function addCallNote(req, res, next) {
     });
 
     res.status(201).json({ note });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function updateAppointment(req, res, next) {
+  try {
+    const lead = await ensureAssignedLead(req.params.id, req.user.id);
+    if (!lead) return res.status(404).json({ message: "Lead not found" });
+
+    const data = appointmentSchema.parse(req.body);
+    const appointmentDate = data.appointmentDate ? new Date(data.appointmentDate) : null;
+    if (appointmentDate && Number.isNaN(appointmentDate.getTime())) {
+      return res.status(400).json({ message: "Invalid appointment date" });
+    }
+
+    const updated = await prisma.lead.update({
+      where: { id: lead.id },
+      data: { appointmentDate },
+      include: {
+        assignedTo: { select: { id: true, name: true } },
+        callNotes: { include: { agent: { select: { id: true, name: true } } }, orderBy: { createdAt: "desc" } }
+      }
+    });
+
+    await prisma.activityLog.create({
+      data: {
+        userId: req.user.id,
+        leadId: lead.id,
+        type: ActivityType.APPOINTMENT_SET,
+        metadata: JSON.stringify({ appointmentDate })
+      }
+    });
+
+    res.json({ lead: updated });
   } catch (error) {
     next(error);
   }

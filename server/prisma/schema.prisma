@@ -23,6 +23,7 @@ enum LeadPhase {
 enum ActivityType {
   CALL_NOTE
   PHASE_CHANGE
+  APPOINTMENT_SET
 }
 
 model User {
@@ -45,6 +46,32 @@ model Lead {
   phoneNumber  String
   email        String
   phase        LeadPhase     @default(NEW)
+  appointmentDate DateTime?
+  dateRegistered DateTime?
+  legalStatusNameEng String?
+  legalStatusNameAmh String?
+  status       String?
+  licenceNumber String?
+  renewedTo    DateTime?
+  siteId       String?
+  businessName String?
+  businessNameAmharic String?
+  managerFName String?
+  managerMName String?
+  managerLName String?
+  description  String?
+  code         String?
+  englishDescription String?
+  amDescription String?
+  subGroup     String?
+  subGroupAm   String?
+  subGroupEn   String?
+  businessRegion String?
+  businessZone String?
+  businessWoreda String?
+  businessKebele String?
+  houseNumber  String?
+  businessTelephone String?
   assignedToId String?
   assignedTo   User?         @relation("AssignedLeads", fields: [assignedToId], references: [id])
   followUpDate DateTime?

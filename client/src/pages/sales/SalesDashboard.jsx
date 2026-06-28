@@ -4,7 +4,7 @@ import { api } from "../../api/client";
 import { Badge } from "../../components/Badge";
 import { StatCard } from "../../components/StatCard";
 import { AppLayout } from "../../layouts/AppLayout";
-import { formatDate, formatDateTime, phaseOptions } from "../../utils/format";
+import { formatDate, formatDateTime, phaseOptions, toDateTimeLocalValue } from "../../utils/format";
 
 function ProgressBar({ value, max }) {
   const percent = max > 0 ? Math.min(100, Math.round((value / max) * 100)) : 0;
@@ -27,6 +27,7 @@ export function SalesDashboard() {
   const [activeLeadId, setActiveLeadId] = useState(null);
   const [activeLead, setActiveLead] = useState(null);
   const [phase, setPhase] = useState("NEW");
+  const [appointmentDate, setAppointmentDate] = useState("");
   const [note, setNote] = useState("");
   const [notice, setNotice] = useState("");
 
@@ -47,6 +48,7 @@ export function SalesDashboard() {
     const { data } = await api.get(`/sales/leads/${id}`);
     setActiveLead(data.lead);
     setPhase(data.lead.phase);
+    setAppointmentDate(toDateTimeLocalValue(data.lead.appointmentDate));
   }
 
   useEffect(() => {
@@ -73,6 +75,35 @@ export function SalesDashboard() {
     setNotice("Call note added.");
     await Promise.all([loadLead(activeLead.id), loadDashboard()]);
   }
+
+  async function saveAppointment() {
+    if (!activeLead) return;
+    const payloadDate = appointmentDate ? new Date(appointmentDate).toISOString() : null;
+    const { data } = await api.patch(`/sales/leads/${activeLead.id}/appointment`, { appointmentDate: payloadDate });
+    setActiveLead(data.lead);
+    setAppointmentDate(toDateTimeLocalValue(data.lead.appointmentDate));
+    setNotice("Appointment updated.");
+    await loadDashboard();
+  }
+
+  const extraFields = activeLead
+    ? [
+        ["Business", activeLead.businessName],
+        ["Amharic Name", activeLead.businessNameAmharic],
+        ["Legal Status", activeLead.legalStatusNameEng],
+        ["License", activeLead.licenceNumber],
+        ["Renewed To", formatDate(activeLead.renewedTo)],
+        ["Registered", formatDate(activeLead.dateRegistered)],
+        ["Manager", [activeLead.managerFName, activeLead.managerMName, activeLead.managerLName].filter(Boolean).join(" ")],
+        ["Business Tel", activeLead.businessTelephone],
+        ["Region", activeLead.businessRegion],
+        ["Zone", activeLead.businessZone],
+        ["Woreda", activeLead.businessWoreda],
+        ["Kebele", activeLead.businessKebele],
+        ["House No.", activeLead.houseNumber],
+        ["Activity", activeLead.englishDescription || activeLead.subGroupEn]
+      ].filter(([, value]) => value && value !== "None")
+    : [];
 
   return (
     <AppLayout title="Sales Dashboard" subtitle="Work through today’s quota, follow-ups, and assigned leads.">
@@ -110,7 +141,7 @@ export function SalesDashboard() {
         <section className="rounded-lg border border-line bg-white shadow-soft">
           <div className="border-b border-line p-5">
             <h2 className="text-lg font-bold">Today&apos;s To-Do List</h2>
-            <p className="text-sm text-neutral-500">Follow-ups due today and new assigned leads.</p>
+            <p className="text-sm text-neutral-500">Appointments, follow-ups, and new assigned leads.</p>
           </div>
           <div className="max-h-[680px] overflow-y-auto">
             {activeList.map((lead) => (
@@ -126,7 +157,8 @@ export function SalesDashboard() {
                   </div>
                   <Badge phase={lead.phase} />
                 </div>
-                <p className="mt-2 text-xs text-neutral-500">Follow-up: {formatDate(lead.followUpDate)}</p>
+                <p className="mt-2 text-xs text-neutral-500">Appointment: {formatDate(lead.appointmentDate)}</p>
+                <p className="text-xs text-neutral-500">Follow-up: {formatDate(lead.followUpDate)}</p>
               </button>
             ))}
           </div>
@@ -140,6 +172,7 @@ export function SalesDashboard() {
                   <h2 className="text-2xl font-bold">{activeLead.fullName}</h2>
                   <p className="text-neutral-500">{activeLead.email}</p>
                   <p className="mt-1 font-semibold">{activeLead.phoneNumber}</p>
+                  {activeLead.appointmentDate ? <p className="mt-1 text-sm text-forest">Appointment: {formatDateTime(activeLead.appointmentDate)}</p> : null}
                 </div>
                 <Badge phase={activeLead.phase} />
               </div>
@@ -162,6 +195,36 @@ export function SalesDashboard() {
                       </button>
                     </div>
                   </div>
+
+                  <div>
+                    <label className="text-sm font-semibold">Appointment Date</label>
+                    <div className="mt-2 flex gap-2">
+                      <input
+                        type="datetime-local"
+                        value={appointmentDate}
+                        onChange={(event) => setAppointmentDate(event.target.value)}
+                        className="min-w-0 flex-1 rounded border border-line px-3 py-2"
+                      />
+                      <button type="button" onClick={saveAppointment} className="inline-flex items-center gap-2 rounded bg-forest px-4 py-2 font-semibold text-white">
+                        <Save size={17} />
+                        Save
+                      </button>
+                    </div>
+                  </div>
+
+                  {extraFields.length ? (
+                    <div>
+                      <h3 className="text-sm font-semibold">Extra Lead Fields</h3>
+                      <div className="mt-2 grid gap-2 rounded border border-line p-3 text-sm">
+                        {extraFields.map(([label, value]) => (
+                          <div key={label} className="grid gap-1 sm:grid-cols-[120px_1fr]">
+                            <span className="text-neutral-500">{label}</span>
+                            <span className="font-medium">{value}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
 
                   <form onSubmit={addNote}>
                     <label className="text-sm font-semibold">New Call Note</label>
