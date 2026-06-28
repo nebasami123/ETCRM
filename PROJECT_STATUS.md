@@ -92,8 +92,8 @@ Recommended:
 
 Before production:
 
-- Convert Prisma datasource to PostgreSQL
-- Replace manual SQLite SQL setup with real migrations
+- Use `server/prisma/schema.postgres.prisma` for Supabase/Render deployment
+- Replace `db push` with real migrations after the hosted schema stabilizes
 - Create production Admin user flow
 - Remove reliance on demo users/passwords
 - Add duplicate detection for imports

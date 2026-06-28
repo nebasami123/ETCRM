@@ -4,6 +4,7 @@ import {
   adminSummary,
   assignLead,
   createLead,
+  createSalesUser,
   exportReport,
   listLeads,
   listQuotas,
@@ -20,6 +21,7 @@ export const adminRoutes = Router();
 adminRoutes.use(requireAuth, requireRole("ADMIN"));
 adminRoutes.get("/summary", adminSummary);
 adminRoutes.get("/sales-users", listSalesUsers);
+adminRoutes.post("/sales-users", createSalesUser);
 adminRoutes.get("/leads", listLeads);
 adminRoutes.post("/leads", createLead);
 adminRoutes.post("/leads/upload", upload.single("file"), uploadLeads);

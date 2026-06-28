@@ -2,6 +2,7 @@ import fs from "fs";
 import { Parser } from "@json2csv/plainjs";
 import { ActivityType, LeadPhase, Role } from "@prisma/client";
 import { z } from "zod";
+import bcrypt from "bcryptjs";
 import { prisma } from "../config/db.js";
 import { parseDay, startOfDay, endOfDay } from "../utils/dates.js";
 import { buildLead, parseOptionalDate, readLeadRows } from "../services/leadImport.js";
@@ -32,6 +33,12 @@ const leadSchema = z.object({
 
 const assignSchema = z.object({
   salesUserId: z.string().nullable()
+});
+
+const salesUserSchema = z.object({
+  name: z.string().min(2),
+  email: z.string().email(),
+  password: z.string().min(8)
 });
 
 export async function adminSummary(req, res, next) {
@@ -66,6 +73,29 @@ export async function listSalesUsers(req, res, next) {
       orderBy: { name: "asc" }
     });
     res.json({ users });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function createSalesUser(req, res, next) {
+  try {
+    const data = salesUserSchema.parse(req.body);
+    const existing = await prisma.user.findUnique({ where: { email: data.email } });
+    if (existing) return res.status(409).json({ message: "A user with this email already exists" });
+
+    const passwordHash = await bcrypt.hash(data.password, 10);
+    const user = await prisma.user.create({
+      data: {
+        name: data.name,
+        email: data.email,
+        passwordHash,
+        role: Role.SALES
+      },
+      select: { id: true, name: true, email: true }
+    });
+
+    res.status(201).json({ user });
   } catch (error) {
     next(error);
   }

@@ -10,23 +10,14 @@ The easiest free preview setup is:
 
 Create a Supabase project and copy the connection string.
 
-For hosted Postgres, update `server/prisma/schema.prisma`:
-
-```prisma
-datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
-}
-```
-
-Then set `DATABASE_URL` in Render.
+For hosted Postgres, use `server/prisma/schema.postgres.prisma`. Keep `schema.prisma` for local SQLite development.
 
 ## 2. Deploy API on Render
 
 Use `server/render.yaml` or create a web service manually:
 
 - Root directory: `server`
-- Build command: `pnpm install && pnpm prisma generate && pnpm prisma migrate deploy`
+- Build command: `pnpm install && pnpm prisma:prod && pnpm db:prod:push`
 - Start command: `pnpm start`
 
 Environment variables:
