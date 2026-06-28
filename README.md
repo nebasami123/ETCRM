@@ -2,6 +2,8 @@
 
 A React + Node CRM with Admin and Sales roles, CSV lead upload, quota tracking, lead notes, and CSV reporting.
 
+See [PROJECT_STATUS.md](PROJECT_STATUS.md) for current implementation status, local run notes, and next deployment steps.
+
 ## Demo Accounts
 
 - Admin: `admin@etcrm.local` / `password123`
@@ -12,10 +14,10 @@ A React + Node CRM with Admin and Sales roles, CSV lead upload, quota tracking, 
 
 ```bash
 pnpm install
-pnpm --dir server prisma migrate dev --name init
-pnpm --dir server seed
-pnpm dev
+node server/prisma/seed.js
 ```
 
-Client: http://127.0.0.1:5173  
+For the local SQLite demo database, run the SQL setup files in `server/prisma/` as described in `PROJECT_STATUS.md`.
+
+Client: http://127.0.0.1:5173
 API: http://127.0.0.1:4000
