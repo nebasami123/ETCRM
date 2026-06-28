@@ -19,6 +19,7 @@ Last updated: 2026-06-29
 ## What Is Built
 
 - Login with Admin/Sales routing
+- Self-service password change for logged-in users
 - Admin dashboard
 - Sales dashboard
 - CSV/Excel lead upload from Admin

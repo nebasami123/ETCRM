@@ -8,6 +8,11 @@ const loginSchema = z.object({
   password: z.string().min(1)
 });
 
+const changePasswordSchema = z.object({
+  currentPassword: z.string().min(1),
+  newPassword: z.string().min(8, "New password must be at least 8 characters")
+});
+
 export async function login(req, res, next) {
   try {
     const data = loginSchema.parse(req.body);
@@ -30,4 +35,25 @@ export async function login(req, res, next) {
 
 export function me(req, res) {
   res.json({ user: req.user });
+}
+
+export async function changePassword(req, res, next) {
+  try {
+    const data = changePasswordSchema.parse(req.body);
+    const user = await prisma.user.findUnique({ where: { id: req.user.id } });
+
+    if (!user || !(await bcrypt.compare(data.currentPassword, user.passwordHash))) {
+      return res.status(400).json({ message: "Current password is incorrect" });
+    }
+
+    const passwordHash = await bcrypt.hash(data.newPassword, 10);
+    await prisma.user.update({
+      where: { id: req.user.id },
+      data: { passwordHash }
+    });
+
+    res.json({ message: "Password updated" });
+  } catch (error) {
+    next(error);
+  }
 }
