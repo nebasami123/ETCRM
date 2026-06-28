@@ -41,6 +41,7 @@ Last updated: 2026-06-29
 - Import duplicate detection by phone/license
 - Import summary with imported/skipped counts and row-level skip reasons
 - Manual lead duplicate prevention by phone/license
+- Admin recent activity feed for lead creation/imports, assignment, phase changes, appointments, and notes
 
 ## Demo Logins
 

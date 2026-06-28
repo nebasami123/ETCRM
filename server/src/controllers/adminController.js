@@ -142,6 +142,24 @@ export async function listLeads(req, res, next) {
   }
 }
 
+export async function listActivity(req, res, next) {
+  try {
+    const limit = Math.min(Number(req.query.limit || 30), 100);
+    const activities = await prisma.activityLog.findMany({
+      include: {
+        user: { select: { id: true, name: true, email: true, role: true } },
+        lead: { select: { id: true, fullName: true, phoneNumber: true, phase: true } }
+      },
+      orderBy: { createdAt: "desc" },
+      take: limit
+    });
+
+    res.json({ activities });
+  } catch (error) {
+    next(error);
+  }
+}
+
 export async function uploadLeads(req, res, next) {
   try {
     if (!req.file) return res.status(400).json({ message: "CSV or Excel file is required" });
@@ -165,6 +183,13 @@ export async function uploadLeads(req, res, next) {
     }
 
     await prisma.lead.createMany({ data: leads });
+    await prisma.activityLog.create({
+      data: {
+        userId: req.user.id,
+        type: ActivityType.LEAD_CREATED,
+        metadata: JSON.stringify({ imported: leads.length, skipped: skipped.length, source: "admin-upload" })
+      }
+    });
     fs.unlink(req.file.path, () => {});
     res.status(201).json({ imported: leads.length, skipped: skipped.length, skippedRows: skipped.slice(0, 25) });
   } catch (error) {

@@ -10,6 +10,7 @@ export function AdminDashboard() {
   const [summary, setSummary] = useState(null);
   const [salesUsers, setSalesUsers] = useState([]);
   const [leads, setLeads] = useState([]);
+  const [activities, setActivities] = useState([]);
   const [quotas, setQuotas] = useState([]);
   const [date, setDate] = useState(todayInputValue());
   const [selectedUser, setSelectedUser] = useState("");
@@ -48,10 +49,12 @@ export function AdminDashboard() {
       api.get("/admin/leads", { params: leadFilters }),
       api.get("/admin/quotas", { params: { date } })
     ]);
+    const activityRes = await api.get("/admin/activity", { params: { limit: 20 } });
     setSummary(summaryRes.data);
     setSalesUsers(usersRes.data.users);
     setLeads(leadsRes.data.leads);
     setQuotas(quotasRes.data.quotas);
+    setActivities(activityRes.data.activities);
     if (!selectedUser && usersRes.data.users[0]) setSelectedUser(usersRes.data.users[0].id);
   }
 
@@ -141,6 +144,30 @@ export function AdminDashboard() {
     link.download = "agent-performance.csv";
     link.click();
     URL.revokeObjectURL(url);
+  }
+
+  function activityLabel(activity) {
+    const labels = {
+      CALL_NOTE: "Call note added",
+      PHASE_CHANGE: "Phase changed",
+      APPOINTMENT_SET: "Appointment set",
+      LEAD_CREATED: "Lead created/imported",
+      LEAD_ASSIGNED: "Lead assigned"
+    };
+    return labels[activity.type] || activity.type;
+  }
+
+  function activityMeta(activity) {
+    if (!activity.metadata) return "";
+    try {
+      const data = JSON.parse(activity.metadata);
+      if (data.imported != null) return `${data.imported} imported, ${data.skipped || 0} skipped`;
+      if (data.from && data.to) return `${data.from} to ${data.to}`;
+      if (data.appointmentDate) return formatDate(data.appointmentDate);
+      return "";
+    } catch {
+      return "";
+    }
   }
 
   return (
@@ -234,6 +261,41 @@ export function AdminDashboard() {
           <input value={newLead.businessWoreda} onChange={(event) => updateNewLead("businessWoreda", event.target.value)} placeholder="Woreda" className="rounded border border-line px-3 py-2" />
           <button className="rounded bg-forest px-4 py-2 font-semibold text-white md:col-span-4">Add Lead</button>
         </form>
+      </section>
+
+      <section className="mt-6 rounded-lg border border-line bg-white p-5 shadow-soft">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <h2 className="text-lg font-bold">Recent Activity</h2>
+            <p className="text-sm text-neutral-500">Latest CRM actions by Admin and Sales users.</p>
+          </div>
+          <button type="button" onClick={loadData} className="rounded border border-line px-3 py-2 text-sm font-semibold hover:bg-neutral-50">
+            Refresh
+          </button>
+        </div>
+        <div className="mt-4 grid gap-3">
+          {activities.length ? (
+            activities.map((activity) => (
+              <div key={activity.id} className="grid gap-2 rounded border border-line p-3 md:grid-cols-[1.2fr_1fr_1fr_auto]">
+                <div>
+                  <p className="font-semibold">{activityLabel(activity)}</p>
+                  <p className="text-sm text-neutral-500">{activityMeta(activity) || "No extra details"}</p>
+                </div>
+                <div>
+                  <p className="text-xs uppercase text-neutral-500">User</p>
+                  <p className="text-sm font-medium">{activity.user?.name || "-"}</p>
+                </div>
+                <div>
+                  <p className="text-xs uppercase text-neutral-500">Lead</p>
+                  <p className="text-sm font-medium">{activity.lead?.fullName || "-"}</p>
+                </div>
+                <p className="text-sm text-neutral-500">{formatDate(activity.createdAt)}</p>
+              </div>
+            ))
+          ) : (
+            <p className="rounded border border-dashed border-line p-4 text-sm text-neutral-500">No activity yet.</p>
+          )}
+        </div>
       </section>
 
       <section className="mt-6 overflow-hidden rounded-lg border border-line bg-white shadow-soft">

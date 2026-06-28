@@ -6,6 +6,7 @@ import {
   createLead,
   createSalesUser,
   exportReport,
+  listActivity,
   listLeads,
   listQuotas,
   listSalesUsers,
@@ -22,6 +23,7 @@ adminRoutes.use(requireAuth, requireRole("ADMIN"));
 adminRoutes.get("/summary", adminSummary);
 adminRoutes.get("/sales-users", listSalesUsers);
 adminRoutes.post("/sales-users", createSalesUser);
+adminRoutes.get("/activity", listActivity);
 adminRoutes.get("/leads", listLeads);
 adminRoutes.post("/leads", createLead);
 adminRoutes.post("/leads/upload", upload.single("file"), uploadLeads);
