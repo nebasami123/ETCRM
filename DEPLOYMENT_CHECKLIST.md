@@ -17,7 +17,7 @@ The Render backend will use this value as `DATABASE_URL`.
 
 ## 2. Render Backend
 
-Create a Render Web Service from the GitHub repo.
+Create a Render Blueprint/Web Service from the GitHub repo. The root `render.yaml` defines the backend service.
 
 - Repository: `nebasami123/ETCRM`
 - Branch: `main`
