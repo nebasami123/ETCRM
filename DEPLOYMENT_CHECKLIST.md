@@ -20,7 +20,7 @@ The Render backend will use this value as `DATABASE_URL`.
 Create a Render Web Service from the GitHub repo.
 
 - Repository: `nebasami123/ETCRM`
-- Branch: `codex/crm-webapp`
+- Branch: `main`
 - Root directory: `server`
 - Build command: `pnpm install && pnpm prisma:prod && pnpm db:prod:push`
 - Start command: `pnpm start`
@@ -34,7 +34,7 @@ Environment variables:
 - `ADMIN_EMAIL`: first production admin email
 - `ADMIN_PASSWORD`: first production admin password, minimum 12 characters
 
-After first deploy, open Render Shell and run:
+After the first deploy, open Render Shell and run:
 
 ```bash
 pnpm seed:prod
@@ -45,10 +45,10 @@ pnpm seed:prod
 Create a Vercel project from the GitHub repo.
 
 - Repository: `nebasami123/ETCRM`
-- Branch: `codex/crm-webapp`
-- Root directory: `client`
-- Build command: `pnpm build`
-- Output directory: `dist`
+- Branch: `main`
+- Root directory: repository root
+- Build command: `pnpm --dir client build`
+- Output directory: `client/dist`
 
 Environment variable:
 

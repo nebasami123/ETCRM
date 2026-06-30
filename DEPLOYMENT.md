@@ -2,10 +2,10 @@
 
 See [DEPLOYMENT_CHECKLIST.md](DEPLOYMENT_CHECKLIST.md) for the step-by-step low-hassle path.
 
-The easiest free preview setup is:
+The deployment plan is:
 
 - Frontend: Vercel
-- API: Render web service
+- Backend API: Render web service
 - Database: Supabase Postgres
 
 ## 1. Create Supabase Database
@@ -27,6 +27,9 @@ Environment variables:
 - `DATABASE_URL`
 - `JWT_SECRET`
 - `CLIENT_URL`
+- `ADMIN_NAME`
+- `ADMIN_EMAIL`
+- `ADMIN_PASSWORD`
 
 After the first deploy, seed the production admin:
 
@@ -36,11 +39,13 @@ pnpm seed:prod
 
 ## 3. Deploy Frontend on Vercel
 
-Create a Vercel project with:
+Create a Vercel project from the GitHub repo:
 
-- Root directory: `client`
-- Build command: `pnpm build`
-- Output directory: `dist`
+- Root directory: repository root, or `client`
+- Build command if root: `pnpm --dir client build`
+- Build command if `client`: `pnpm build`
+- Output directory if root: `client/dist`
+- Output directory if `client`: `dist`
 
 Environment variable:
 
