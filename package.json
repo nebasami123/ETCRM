@@ -4,11 +4,14 @@
   "version": "0.1.0",
   "scripts": {
     "dev": "concurrently \"pnpm --dir server dev\" \"pnpm --dir client dev --host 127.0.0.1\"",
-    "build": "pnpm --dir client build",
+    "build": "pnpm --dir client build && pnpm --dir server typecheck && tsc --noEmit -p tsconfig.scripts.json",
     "seed": "pnpm --dir server seed",
     "db:migrate": "pnpm --dir server prisma migrate dev --name init"
   },
   "devDependencies": {
-    "concurrently": "^9.1.2"
+    "@types/node": "^24.10.1",
+    "concurrently": "^9.1.2",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "8.61.0"
   }
 }

@@ -63,7 +63,7 @@ Initialize local SQLite database:
 ```powershell
 $env:DATABASE_URL="file:./dev.db"
 .\server\node_modules\.bin\prisma.CMD db execute --schema server/prisma/schema.prisma --file server/prisma/manual-init.sql
-node server/prisma/seed.js
+pnpm --dir server seed
 ```
 
 If adding columns to an existing local database, apply the incremental SQL files in `server/prisma/`.
@@ -78,8 +78,8 @@ cd client
 Start local API and built frontend:
 
 ```powershell
-node server/src/server.js
-node scripts/serve-client.mjs
+pnpm --dir server start
+tsx scripts/serve-client.ts
 ```
 
 URLs:
