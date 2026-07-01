@@ -4,22 +4,22 @@ Recommended low-hassle setup:
 
 - Frontend: Vercel
 - Backend: Dokploy Docker app
-- Database: Supabase Postgres
+- Database: Dokploy Postgres
 
-## 1. Supabase
+## 1. Dokploy Postgres
 
-1. Create a Supabase project.
-2. Open Project Settings > Database.
-3. Copy the Postgres connection string.
-4. Use the pooled connection string if available.
-5. Make sure the URL includes SSL settings.
-6. Keep the database password somewhere safe.
+1. Create a Dokploy Postgres database service.
+2. Use database name `etcrm`.
+3. Use user `etcrm`.
+4. Generate and save a strong password.
+5. Copy the internal connection string.
+6. Do not expose Postgres publicly unless you need external database access.
 
 The Dokploy backend will use this value as `DATABASE_URL`.
 
 ## 2. Dokploy Backend
 
-Create a Dokploy application from the GitHub repo. The root `Dockerfile` defines the backend service.
+Create a Dokploy application from the GitHub repo. The root `Dockerfile` defines the backend service. For low-RAM VPS servers, prefer the GitHub-built image.
 
 - Repository: `nebasami123/ETCRM`
 - Branch: `main`
@@ -27,9 +27,16 @@ Create a Dokploy application from the GitHub repo. The root `Dockerfile` defines
 - App port: `4000`
 - Health check path: `/health`
 
+Prebuilt image option:
+
+- Provider/build type: Docker image
+- Image: `ghcr.io/nebasami123/etcrm-api:latest`
+- App port: `4000`
+- Health check path: `/health`
+
 Environment variables:
 
-- `DATABASE_URL`: Supabase Postgres URL
+- `DATABASE_URL`: Dokploy Postgres internal connection string
 - `JWT_SECRET`: long random secret
 - `CLIENT_URL`: Vercel frontend URL, after frontend deploy
 - `ADMIN_NAME`: first production admin name
@@ -78,4 +85,4 @@ Then create Sales users from the Admin dashboard.
 
 - Do not use the demo seed in production.
 - Dokploy runs on your server, so uptime and resources depend on that server.
-- Supabase free tier is enough for early testing, but watch storage/project limits.
+- Make sure the Dokploy database has persistent storage/backups enabled before using it for real production data.

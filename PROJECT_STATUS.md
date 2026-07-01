@@ -93,12 +93,12 @@ Recommended:
 
 - Frontend: Vercel
 - Backend API: Dokploy Docker app
-- Database: Supabase Postgres
+- Database: Dokploy Postgres
 - Checklist: `DEPLOYMENT_CHECKLIST.md`
 
 Before production:
 
-- Use `server/prisma/schema.postgres.prisma` for Supabase/Dokploy deployment
+- Use `server/prisma/schema.postgres.prisma` for Dokploy Postgres deployment
 - Replace `db push` with real migrations after the hosted schema stabilizes
 - Use `pnpm seed:prod` for the first production Admin user
 - Create Sales users from the Admin dashboard

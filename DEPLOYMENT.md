@@ -6,17 +6,17 @@ The deployment plan is:
 
 - Frontend: Vercel
 - Backend API: Dokploy Docker app
-- Database: Supabase Postgres
+- Database: Dokploy Postgres
 
-## 1. Create Supabase Database
+## 1. Create Dokploy Database
 
-Create a Supabase project and copy the Postgres connection string. Use the pooled connection string when Supabase offers one, and make sure it includes SSL settings.
+Create a Dokploy Postgres database service and copy its internal connection string.
 
 For hosted Postgres, use `server/prisma/schema.postgres.prisma`. Keep `schema.prisma` for local SQLite development.
 
 ## 2. Deploy API on Dokploy
 
-Create a Dokploy application from the GitHub repo and deploy it with the root `Dockerfile`.
+Create a Dokploy application from the GitHub repo and deploy it with the root `Dockerfile`, or pull the prebuilt image from GitHub Container Registry.
 
 - Repository: `nebasami123/ETCRM`
 - Branch: `main`
@@ -24,9 +24,15 @@ Create a Dokploy application from the GitHub repo and deploy it with the root `D
 - Published/internal app port: `4000`
 - Health check path: `/health`
 
+If the VPS is too small to build Docker images reliably, use the GitHub-built image instead:
+
+- Image: `ghcr.io/nebasami123/etcrm-api:latest`
+- Internal app port: `4000`
+- Health check path: `/health`
+
 Environment variables:
 
-- `DATABASE_URL`: Supabase Postgres connection string
+- `DATABASE_URL`: Dokploy Postgres internal connection string
 - `JWT_SECRET`: long random value
 - `CLIENT_URL`: Vercel frontend URL
 - `ADMIN_NAME`: first production admin name
