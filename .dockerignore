@@ -1,0 +1,14 @@
+.git
+.agents
+.codex
+.pnpm-store
+node_modules
+client/node_modules
+server/node_modules
+client/dist
+server/prisma/dev.db
+server/uploads
+*.log
+*.err
+.env
+server/.env
