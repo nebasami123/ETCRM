@@ -1,3 +1,4 @@
+import { AdminAnalytics } from "../../features/admin/components/AdminAnalytics";
 import { AdminLeadsTable } from "../../features/admin/components/AdminLeadsTable";
 import { AdminStats } from "../../features/admin/components/AdminStats";
 import { CreateSalesUserForm } from "../../features/admin/components/CreateSalesUserForm";
@@ -15,6 +16,7 @@ export function AdminDashboard() {
   return (
     <AppLayout title="Admin Dashboard" subtitle="Manage leads, quotas, and performance exports.">
       <AdminStats summary={admin.summary} />
+      <AdminAnalytics summary={admin.summary} leads={admin.leads} activities={admin.activities} salesUsers={admin.salesUsers} />
 
       {admin.notice ? <div className="mt-5 rounded border border-line bg-white p-3 text-sm text-forest">{admin.notice}</div> : null}
 

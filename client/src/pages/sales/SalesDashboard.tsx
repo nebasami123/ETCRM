@@ -1,6 +1,5 @@
 import { LeadDetailPanel } from "../../features/sales/components/LeadDetailPanel";
-import { PipelineMix } from "../../features/sales/components/PipelineMix";
-import { QuotaProgress } from "../../features/sales/components/QuotaProgress";
+import { SalesPerformancePanel } from "../../features/sales/components/SalesPerformancePanel";
 import { SalesStats } from "../../features/sales/components/SalesStats";
 import { TodoLeadList } from "../../features/sales/components/TodoLeadList";
 import { useSalesDashboard } from "../../features/sales/hooks/useSalesDashboard";
@@ -14,11 +13,7 @@ export function SalesDashboard() {
   return (
     <AppLayout title="Sales Dashboard" subtitle="Work through today's quota, follow-ups, and assigned leads.">
       <SalesStats {...sales.statsProps} />
-
-      <section className="mt-6 grid gap-4 rounded-lg border border-line bg-white p-5 shadow-soft md:grid-cols-2">
-        <QuotaProgress {...sales.quotaProgressProps} />
-        <PipelineMix {...sales.pipelineMixProps} />
-      </section>
+      <SalesPerformancePanel dashboard={sales.dashboard} />
 
       {sales.notice ? <div className="mt-5 rounded border border-line bg-white p-3 text-sm text-forest">{sales.notice}</div> : null}
 
