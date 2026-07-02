@@ -46,14 +46,10 @@ Environment variables:
 The container start command runs Prisma setup automatically:
 
 ```bash
-pnpm --dir server prisma:prod && pnpm --dir server db:prod:push && pnpm --dir server start
+pnpm --dir server prisma:prod && pnpm --dir server db:prod:push && pnpm --dir server seed:prod && pnpm --dir server start
 ```
 
-After the first deploy, open the Dokploy app terminal and run:
-
-```bash
-pnpm --dir server seed:prod
-```
+No manual production seed command is needed in the Dokploy terminal.
 
 ## 3. Vercel Frontend
 
@@ -73,11 +69,7 @@ After Vercel deploys, copy the Vercel URL and set Dokploy `CLIENT_URL` to that U
 
 ## 4. First Login
 
-Use the admin created by:
-
-```bash
-pnpm seed:prod
-```
+Use the admin email/password you provided through `ADMIN_EMAIL` and `ADMIN_PASSWORD`.
 
 Then create Sales users from the Admin dashboard.
 

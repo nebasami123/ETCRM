@@ -39,27 +39,22 @@ Environment variables:
 - `ADMIN_EMAIL`: first production admin email
 - `ADMIN_PASSWORD`: first production admin password, minimum 12 characters
 
-The Docker start command generates Prisma Client, pushes the hosted Postgres schema, and starts the API. After the first deploy, open the Dokploy app terminal and seed the production admin:
-
-```bash
-pnpm --dir server seed:prod
-```
+The Docker start command generates Prisma Client, pushes the hosted Postgres schema, seeds/upserts the production admin from the `ADMIN_*` environment variables, and starts the API. No manual seed command is needed in the Dokploy terminal.
 
 ## 3. Deploy Frontend on Vercel
 
 Create a Vercel project from the GitHub repo:
 
-- Root directory: repository root, or `client`
-- Build command if root: `pnpm --dir client build`
-- Build command if `client`: `pnpm build`
-- Output directory if root: `client/dist`
-- Output directory if `client`: `dist`
+- Root directory: `./`
+- Install command: `pnpm install --frozen-lockfile`
+- Build command: `pnpm --dir client build`
+- Output directory: `client/dist`
 
 Environment variable:
 
-- `VITE_API_URL=https://your-dokploy-api-domain/api`
+- `VITE_API_URL=https://api.buanbua.online/api`
 
-Then update Dokploy `CLIENT_URL` to your Vercel URL.
+Then update Dokploy `CLIENT_URL` to `https://www.buanbua.online`.
 
 ## 4. First Login
 

@@ -1,18 +1,18 @@
 # ETCRM Project Status
 
-Last updated: 2026-06-29
+Last updated: 2026-07-02
 
 ## Repository
 
 - GitHub: `https://github.com/nebasami123/ETCRM`
-- Active branch: `codex/crm-webapp`
+- Active branch: `main`
 - Local workspace: `C:\Users\Nebas\Documents\ETCRM`
 
 ## Current Stack
 
 - Frontend: React, Vite, Tailwind CSS
 - Backend: Node.js, Express
-- Database: Prisma with local SQLite for development
+- Database: Prisma with local SQLite for development and Dokploy Postgres for production
 - Auth: JWT, bcrypt, role-based access control
 - Roles: `ADMIN`, `SALES`
 
@@ -43,6 +43,32 @@ Last updated: 2026-06-29
 - Import summary with imported/skipped counts and row-level skip reasons
 - Manual lead duplicate prevention by phone/license
 - Admin recent activity feed for lead creation/imports, assignment, phase changes, appointments, and notes
+
+## Production Deployment
+
+Current hosted setup:
+
+- Frontend: Vercel
+- Frontend URL: `https://www.buanbua.online/login`
+- Backend API: Dokploy Docker app
+- Backend health URL: `https://api.buanbua.online/health`
+- Database: Dokploy Postgres using the internal connection URL
+- Container image: `ghcr.io/nebasami123/etcrm-api:latest`
+
+Production configuration that is known to work:
+
+- Vercel root directory: `./`
+- Vercel install command: `pnpm install --frozen-lockfile`
+- Vercel build command: `pnpm --dir client build`
+- Vercel output directory: `client/dist`
+- Vercel env: `VITE_API_URL=https://api.buanbua.online/api`
+- Dokploy app port: `4000`
+- Dokploy domain host: `api.buanbua.online`
+- Dokploy domain path/internal path: `/`
+- Dokploy HTTPS provider: LetsEncrypt
+- Dokploy env `CLIENT_URL=https://www.buanbua.online`
+
+The backend Docker startup generates Prisma Client, pushes the Postgres schema, seeds/upserts the production admin from `ADMIN_NAME`, `ADMIN_EMAIL`, and `ADMIN_PASSWORD`, then starts the API. No manual container terminal seed is needed.
 
 ## Demo Logins
 
@@ -89,19 +115,17 @@ URLs:
 
 ## Deployment Plan
 
-Recommended:
+Completed:
 
 - Frontend: Vercel
 - Backend API: Dokploy Docker app
 - Database: Dokploy Postgres
 - Checklist: `DEPLOYMENT_CHECKLIST.md`
 
-Before production:
+Production follow-ups:
 
-- Use `server/prisma/schema.postgres.prisma` for Dokploy Postgres deployment
 - Replace `db push` with real migrations after the hosted schema stabilizes
-- Use `pnpm seed:prod` for the first production Admin user
-- Create Sales users from the Admin dashboard
+- Add an admin-only create-user screen/API if the current UI does not already expose user creation
 - Add richer import preview before committing uploaded rows
 
 ## Important Local Notes
