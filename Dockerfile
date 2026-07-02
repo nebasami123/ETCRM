@@ -17,4 +17,4 @@ ENV PORT=4000
 
 EXPOSE 4000
 
-CMD ["sh", "-c", "pnpm --dir server prisma:prod && pnpm --dir server db:prod:push && pnpm --dir server start"]
+CMD ["sh", "-c", "pnpm --dir server prisma:prod && pnpm --dir server db:prod:push && pnpm --dir server seed:prod && pnpm --dir server start"]
