@@ -115,8 +115,9 @@ export const uploadLeads: RequestHandler = async (req, res, next) => {
     const result = await uploadSalesLeads({ file: req.file, userId: req.user.id });
 
     if (result.status === "empty") {
+      const firstIssue = result.skippedRows[0];
       return res.status(400).json({
-        message: "No new valid leads found.",
+        message: firstIssue ? `No new valid leads found. First issue: row ${firstIssue.row} - ${firstIssue.reason}.` : "No new valid leads found.",
         imported: result.imported,
         skipped: result.skipped,
         skippedRows: result.skippedRows
