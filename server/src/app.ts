@@ -27,7 +27,11 @@ app.use(
 );
 app.use(express.json());
 
-app.get("/health", (_req, res) => res.json({ status: "ok" }));
+const appVersion = process.env.APP_VERSION || "0.0.0";
+const buildCommit = process.env.BUILD_COMMIT || "local";
+
+app.get("/health", (_req, res) => res.json({ status: "ok", version: appVersion, build: buildCommit }));
+app.get("/api/version", (_req, res) => res.json({ version: appVersion, build: buildCommit }));
 app.use("/api/auth", authRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/sales", salesRoutes);

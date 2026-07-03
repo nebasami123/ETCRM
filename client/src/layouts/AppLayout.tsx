@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { FormEvent, ReactNode } from "react";
 import { KeyRound, LogOut, X } from "lucide-react";
 import { api } from "../api/client";
@@ -15,6 +15,7 @@ interface AppLayoutProps {
 
 export function AppLayout({ children, title, subtitle }: AppLayoutProps) {
   const { user, logout } = useAuth();
+  const [apiBuild, setApiBuild] = useState("");
   const [showPasswordForm, setShowPasswordForm] = useState(false);
   const [passwordForm, setPasswordForm] = useState({ currentPassword: "", newPassword: "", confirmPassword: "" });
   const [passwordMessage, setPasswordMessage] = useState("");
@@ -49,6 +50,13 @@ export function AppLayout({ children, title, subtitle }: AppLayoutProps) {
       setPasswordSaving(false);
     }
   }
+
+  useEffect(() => {
+    api
+      .get<{ version: string; build: string }>("/version")
+      .then((response) => setApiBuild(`${response.data.version} · ${response.data.build.slice(0, 8)}`))
+      .catch(() => setApiBuild("unavailable"));
+  }, []);
 
   if (!user) return null;
 
@@ -152,7 +160,8 @@ export function AppLayout({ children, title, subtitle }: AppLayoutProps) {
       </header>
       <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6">{children}</main>
       <footer className="mx-auto max-w-7xl px-4 pb-6 text-right text-xs text-neutral-500 sm:px-6">
-        ETCRM v{__APP_VERSION__} · build {__BUILD_COMMIT__}
+        Web v{__APP_VERSION__} · build {__BUILD_COMMIT__}
+        {apiBuild ? <span> · API v{apiBuild}</span> : null}
       </footer>
     </div>
   );

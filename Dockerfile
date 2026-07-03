@@ -12,8 +12,12 @@ RUN pnpm install --frozen-lockfile
 
 COPY server ./server
 
+ARG APP_VERSION=0.0.0
+ARG BUILD_COMMIT=local
 ENV NODE_ENV=production
 ENV PORT=4000
+ENV APP_VERSION=$APP_VERSION
+ENV BUILD_COMMIT=$BUILD_COMMIT
 
 EXPOSE 4000
 
