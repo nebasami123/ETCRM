@@ -24,6 +24,7 @@ export function AdminDashboard() {
         <LeadUpload
           title="Bulk Upload Leads"
           description="Upload CSV or Excel. Real-estate columns are saved as extra lead fields."
+          isUploading={admin.uploadProps.isUploading}
           onFileChange={admin.uploadProps.setFile}
           onUpload={admin.uploadProps.uploadCsv}
         />

@@ -25,8 +25,13 @@ interface SkippedLeadRow {
 }
 
 export function normalizeHeader(row: LeadImportRow, names: string[]) {
-  const found = Object.keys(row).find((key) => names.includes(key.trim().toLowerCase()));
+  const normalizedNames = names.map(normalizeHeaderKey);
+  const found = Object.keys(row).find((key) => normalizedNames.includes(normalizeHeaderKey(key)));
   return found ? String(row[found] || "").trim() : "";
+}
+
+function normalizeHeaderKey(value: string) {
+  return value.trim().toLowerCase().replace(/[^a-z0-9]/g, "");
 }
 
 function normalizeExact(row: LeadImportRow, name: string) {
@@ -53,10 +58,15 @@ export async function readLeadRows(file: Express.Multer.File): Promise<LeadImpor
 }
 
 export function buildLead(row: LeadImportRow, { assignedToId = null, createdById = null }: BuildLeadOptions = {}): Prisma.LeadCreateManyInput | null {
-  const managerName = [normalizeExact(row, "ManagerFName"), normalizeExact(row, "ManagerMName"), normalizeExact(row, "ManagerLName")].filter(Boolean).join(" ");
-  const businessName = normalizeExact(row, "BusinessName");
-  const fullName = normalizeHeader(row, ["full name", "fullname", "name"]) || businessName || managerName;
-  const phoneNumber = normalizeHeader(row, ["phone number", "phone", "mobile", "mangerphone", "managerphone"]) || normalizeExact(row, "BussinessTelephone");
+  const managerFName = normalizeHeader(row, ["ManagerFName", "Manager First Name", "manager first"]);
+  const managerMName = normalizeHeader(row, ["ManagerMName", "Manager Middle Name", "manager middle"]);
+  const managerLName = normalizeHeader(row, ["ManagerLName", "Manager Last Name", "manager last"]);
+  const managerName = [managerFName, managerMName, managerLName].filter(Boolean).join(" ");
+  const businessName = normalizeHeader(row, ["BusinessName", "Business Name"]);
+  const fullName = normalizeHeader(row, ["full name", "fullname", "name", "contact name"]) || businessName || managerName;
+  const phoneNumber =
+    normalizeHeader(row, ["phone number", "phone", "mobile", "mangerphone", "managerphone", "manager phone", "business number"]) ||
+    normalizeHeader(row, ["BussinessTelephone", "Business Telephone"]);
   const email = normalizeHeader(row, ["email", "email address"]);
   const phase = normalizeHeader(row, ["phase", "status"]).toUpperCase().replace(/[-\s]/g, "_");
 
@@ -70,31 +80,31 @@ export function buildLead(row: LeadImportRow, { assignedToId = null, createdById
     createdById,
     phase: phaseValues.includes(phase as LeadPhase) ? (phase as LeadPhase) : LeadPhase.NEW,
     appointmentDate: parseOptionalDate(normalizeHeader(row, ["appointment date", "appointmentdate", "appointment"])),
-    dateRegistered: parseOptionalDate(normalizeExact(row, "DateRegistered")),
-    legalStatusNameEng: normalizeExact(row, "LegalStatusNameEng"),
+    dateRegistered: parseOptionalDate(normalizeHeader(row, ["DateRegistered", "Date Registered"])),
+    legalStatusNameEng: normalizeHeader(row, ["LegalStatusNameEng", "Business Type"]),
     legalStatusNameAmh: normalizeExact(row, "LegalStatusNameAmh"),
     status: normalizeExact(row, "Status"),
-    licenceNumber: normalizeExact(row, "LicenceNumber"),
-    renewedTo: parseOptionalDate(normalizeExact(row, "RenewedTo")),
+    licenceNumber: normalizeHeader(row, ["LicenceNumber", "License Number", "TIN"]),
+    renewedTo: parseOptionalDate(normalizeHeader(row, ["RenewedTo", "Renewed To"])),
     siteId: normalizeExact(row, "SiteID"),
     businessName,
     businessNameAmharic: normalizeExact(row, "BusinessNameAmharic"),
-    managerFName: normalizeExact(row, "ManagerFName"),
-    managerMName: normalizeExact(row, "ManagerMName"),
-    managerLName: normalizeExact(row, "ManagerLName"),
+    managerFName,
+    managerMName,
+    managerLName,
     description: normalizeExact(row, "description"),
-    code: normalizeExact(row, "Code"),
-    englishDescription: normalizeExact(row, "EnglishDescription"),
+    code: normalizeHeader(row, ["Code", "Sector"]),
+    englishDescription: normalizeHeader(row, ["EnglishDescription", "Sector Category"]),
     amDescription: normalizeExact(row, "Amdiscrption"),
     subGroup: normalizeExact(row, "SubGroup"),
     subGroupAm: normalizeExact(row, "SubGroupAM"),
     subGroupEn: normalizeExact(row, "SubGroupEN"),
-    businessRegion: normalizeExact(row, "BussinessdescriptionRegion"),
+    businessRegion: normalizeHeader(row, ["BussinessdescriptionRegion", "Business Region", "Region"]),
     businessZone: normalizeExact(row, "BussinessDescriptionZones"),
-    businessWoreda: normalizeExact(row, "BussinessDescriptionWoredas"),
+    businessWoreda: normalizeHeader(row, ["BussinessDescriptionWoredas", "Subcity", "Woreda"]),
     businessKebele: normalizeExact(row, "BussinessAmharickebeles"),
     houseNumber: normalizeExact(row, "HousNum"),
-    businessTelephone: normalizeExact(row, "BussinessTelephone")
+    businessTelephone: normalizeHeader(row, ["BussinessTelephone", "Business Telephone", "Business Number"])
   };
 }
 

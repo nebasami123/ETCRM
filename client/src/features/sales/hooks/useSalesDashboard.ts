@@ -26,6 +26,7 @@ export function useSalesDashboard() {
   const [note, setNote] = useState("");
   const [notice, setNotice] = useState("");
   const [file, setFile] = useState<File | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
   const [leadSearch, setLeadSearch] = useState("");
   const [newLead, setNewLead] = useState(emptyLead);
 
@@ -107,14 +108,22 @@ export function useSalesDashboard() {
   async function uploadCsv(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!file) return setNotice("Choose a CSV or Excel file first.");
+    setIsUploading(true);
+    setNotice("Uploading leads...");
     const form = new FormData();
     form.append("file", file);
-    const data = await salesApi.uploadLeads(form);
-    const skippedText = data.skipped ? ` Skipped ${data.skipped}.` : "";
-    const reasonText = data.skippedRows?.length ? ` First issue: row ${data.skippedRows[0].row} - ${data.skippedRows[0].reason}.` : "";
-    setNotice(`Imported ${data.imported} leads and assigned them to you.${skippedText}${reasonText}`);
-    setFile(null);
-    await loadDashboard();
+    try {
+      const data = await salesApi.uploadLeads(form);
+      const skippedText = data.skipped ? ` Skipped ${data.skipped}.` : "";
+      const reasonText = data.skippedRows?.length ? ` First issue: row ${data.skippedRows[0].row} - ${data.skippedRows[0].reason}.` : "";
+      setNotice(`Imported ${data.imported} leads and assigned them to you.${skippedText}${reasonText}`);
+      setFile(null);
+      await loadDashboard();
+    } catch (error) {
+      setNotice(errorMessage(error, "Could not upload leads."));
+    } finally {
+      setIsUploading(false);
+    }
   }
 
   async function saveAppointment() {
@@ -159,6 +168,7 @@ export function useSalesDashboard() {
       phaseChart
     },
     uploadProps: {
+      isUploading,
       setFile,
       uploadCsv
     },

@@ -129,6 +129,7 @@ export async function uploadSalesLeads({ file, userId }: { file: Express.Multer.
   const { leads, skipped } = await prepareLeadImport(prisma, candidates);
 
   if (!leads.length) {
+    fs.unlink(file.path, () => {});
     return { status: "empty" as const, imported: 0, skipped: skipped.length, skippedRows: skipped.slice(0, 25) };
   }
 

@@ -21,6 +21,7 @@ export function SalesDashboard() {
         <LeadUpload
           title="Upload My Leads"
           description="CSV or Excel uploads are assigned to you automatically."
+          isUploading={sales.uploadProps.isUploading}
           onFileChange={sales.uploadProps.setFile}
           onUpload={sales.uploadProps.uploadCsv}
         />

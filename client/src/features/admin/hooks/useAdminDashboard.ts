@@ -40,6 +40,7 @@ export function useAdminDashboard() {
   const [callsTarget, setCallsTarget] = useState(10);
   const [leadsTarget, setLeadsTarget] = useState(8);
   const [file, setFile] = useState<File | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
   const [notice, setNotice] = useState("");
   const [newSalesUser, setNewSalesUser] = useState(emptySalesUser);
   const [leadFilters, setLeadFilters] = useState(initialLeadFilters);
@@ -85,14 +86,22 @@ export function useAdminDashboard() {
   async function uploadCsv(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!file) return setNotice("Choose a CSV file first.");
+    setIsUploading(true);
+    setNotice("Uploading leads...");
     const form = new FormData();
     form.append("file", file);
-    const data = await adminApi.uploadLeads(form);
-    const skippedText = data.skipped ? ` Skipped ${data.skipped}.` : "";
-    const reasonText = data.skippedRows?.length ? ` First issue: row ${data.skippedRows[0].row} - ${data.skippedRows[0].reason}.` : "";
-    setNotice(`Imported ${data.imported} leads.${skippedText}${reasonText}`);
-    setFile(null);
-    await loadData();
+    try {
+      const data = await adminApi.uploadLeads(form);
+      const skippedText = data.skipped ? ` Skipped ${data.skipped}.` : "";
+      const reasonText = data.skippedRows?.length ? ` First issue: row ${data.skippedRows[0].row} - ${data.skippedRows[0].reason}.` : "";
+      setNotice(`Imported ${data.imported} leads.${skippedText}${reasonText}`);
+      setFile(null);
+      await loadData();
+    } catch (error) {
+      setNotice(errorMessage(error, "Could not upload leads."));
+    } finally {
+      setIsUploading(false);
+    }
   }
 
   function updateNewLead(field: keyof AdminLeadForm, value: string) {
@@ -192,6 +201,7 @@ export function useAdminDashboard() {
       saveQuota
     },
     uploadProps: {
+      isUploading,
       setFile,
       uploadCsv
     },
