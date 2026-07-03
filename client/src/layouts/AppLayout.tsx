@@ -151,6 +151,9 @@ export function AppLayout({ children, title, subtitle }: AppLayoutProps) {
         ) : null}
       </header>
       <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6">{children}</main>
+      <footer className="mx-auto max-w-7xl px-4 pb-6 text-right text-xs text-neutral-500 sm:px-6">
+        ETCRM v{__APP_VERSION__} · build {__BUILD_COMMIT__}
+      </footer>
     </div>
   );
 }
