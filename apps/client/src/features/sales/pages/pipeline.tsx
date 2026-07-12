@@ -241,7 +241,7 @@ export function SalesPipeline() {
 
               {/* Unified Actions Form Container */}
               <div 
-                className="premium-card group rounded-xl border border-separator bg-gradient-to-br from-surface to-surface/95 p-5 shadow-surface hover:shadow-lg transition-all duration-300 ease-out-smooth relative overflow-hidden"
+                className="premium-card group rounded-xl border border-separator bg-linear-to-br from-surface to-surface/95 p-5 shadow-surface hover:shadow-lg transition-all duration-300 ease-out-smooth relative overflow-hidden"
                 style={{ "--card-glow": "var(--accent)" } as React.CSSProperties}
               >
                 {/* Glow Background inside element */}

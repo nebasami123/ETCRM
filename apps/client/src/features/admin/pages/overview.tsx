@@ -89,7 +89,7 @@ export function AdminOverview() {
       <div className="grid gap-6 lg:grid-cols-3">
         {/* Pipeline Shape (Bar Chart) */}
         <Card 
-          className="premium-card group relative overflow-hidden bg-gradient-to-br from-surface to-surface/95 p-5 shadow-surface hover:-translate-y-0.5 hover:shadow-lg transition-all duration-300 ease-out-smooth lg:col-span-2"
+          className="premium-card group relative overflow-hidden bg-linear-to-br from-surface to-surface/95 p-5 shadow-surface hover:-translate-y-0.5 hover:shadow-lg transition-all duration-300 ease-out-smooth lg:col-span-2"
           style={{ "--card-glow": "var(--accent)" } as React.CSSProperties}
         >
           {/* Decorative Glow Shape */}
@@ -108,7 +108,7 @@ export function AdminOverview() {
 
         {/* Activity Mix (Donut Chart) */}
         <Card 
-          className="premium-card group relative overflow-hidden bg-gradient-to-br from-surface to-surface/95 p-5 shadow-surface hover:-translate-y-0.5 hover:shadow-lg transition-all duration-300 ease-out-smooth"
+          className="premium-card group relative overflow-hidden bg-linear-to-br from-surface to-surface/95 p-5 shadow-surface hover:-translate-y-0.5 hover:shadow-lg transition-all duration-300 ease-out-smooth"
           style={{ "--card-glow": "#3b82f6" } as React.CSSProperties}
         >
           {/* Decorative Glow Shape */}
@@ -140,7 +140,7 @@ export function AdminOverview() {
 
         {/* Agent Load (Horizontal Bar Chart) */}
         <Card 
-          className="premium-card group relative overflow-hidden bg-gradient-to-br from-surface to-surface/95 p-5 shadow-surface hover:-translate-y-0.5 hover:shadow-lg transition-all duration-300 ease-out-smooth lg:col-span-3"
+          className="premium-card group relative overflow-hidden bg-linear-to-br from-surface to-surface/95 p-5 shadow-surface hover:-translate-y-0.5 hover:shadow-lg transition-all duration-300 ease-out-smooth lg:col-span-3"
           style={{ "--card-glow": "var(--warning)" } as React.CSSProperties}
         >
           {/* Decorative Glow Shape */}
@@ -167,7 +167,7 @@ export function AdminOverview() {
 
       {/* Sales Leaderboard */}
       <Card 
-        className="premium-card group relative overflow-hidden bg-gradient-to-br from-surface to-surface/95 p-5 shadow-surface hover:-translate-y-0.5 hover:shadow-lg transition-all duration-300 ease-out-smooth"
+        className="premium-card group relative overflow-hidden bg-linear-to-br from-surface to-surface/95 p-5 shadow-surface hover:-translate-y-0.5 hover:shadow-lg transition-all duration-300 ease-out-smooth"
         style={{ "--card-glow": "var(--success)" } as React.CSSProperties}
       >
         {/* Decorative Glow Shape */}

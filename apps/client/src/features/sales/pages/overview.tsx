@@ -93,7 +93,7 @@ export function SalesOverview() {
       {/* Quota Progress Rings */}
       <div className="grid gap-6 md:grid-cols-2">
         <Card 
-          className="premium-card group relative overflow-hidden bg-gradient-to-br from-surface to-surface/95 p-6 shadow-surface hover:-translate-y-0.5 hover:shadow-lg transition-all duration-300 ease-out-smooth flex flex-col sm:flex-row items-center justify-between gap-6"
+          className="premium-card group relative overflow-hidden bg-linear-to-br from-surface to-surface/95 p-6 shadow-surface hover:-translate-y-0.5 hover:shadow-lg transition-all duration-300 ease-out-smooth flex flex-col sm:flex-row items-center justify-between gap-6"
           style={{ "--card-glow": "var(--accent)" } as React.CSSProperties}
         >
           {/* Decorative Glow Shape */}
@@ -112,7 +112,7 @@ export function SalesOverview() {
         </Card>
 
         <Card 
-          className="premium-card group relative overflow-hidden bg-gradient-to-br from-surface to-surface/95 p-6 shadow-surface hover:-translate-y-0.5 hover:shadow-lg transition-all duration-300 ease-out-smooth flex flex-col sm:flex-row items-center justify-between gap-6"
+          className="premium-card group relative overflow-hidden bg-linear-to-br from-surface to-surface/95 p-6 shadow-surface hover:-translate-y-0.5 hover:shadow-lg transition-all duration-300 ease-out-smooth flex flex-col sm:flex-row items-center justify-between gap-6"
           style={{ "--card-glow": "var(--warning)" } as React.CSSProperties}
         >
           {/* Decorative Glow Shape */}
@@ -135,7 +135,7 @@ export function SalesOverview() {
       <div className="grid gap-6 lg:grid-cols-3">
         {/* Performance Radar */}
         <Card 
-          className="premium-card group relative overflow-hidden bg-gradient-to-br from-surface to-surface/95 p-5 shadow-surface hover:-translate-y-0.5 hover:shadow-lg transition-all duration-300 ease-out-smooth lg:col-span-2"
+          className="premium-card group relative overflow-hidden bg-linear-to-br from-surface to-surface/95 p-5 shadow-surface hover:-translate-y-0.5 hover:shadow-lg transition-all duration-300 ease-out-smooth lg:col-span-2"
           style={{ "--card-glow": "var(--accent)" } as React.CSSProperties}
         >
           {/* Decorative Glow Shape */}
@@ -150,7 +150,7 @@ export function SalesOverview() {
 
         {/* Pipeline stage breakdown */}
         <Card 
-          className="premium-card group relative overflow-hidden bg-gradient-to-br from-surface to-surface/95 p-5 shadow-surface hover:-translate-y-0.5 hover:shadow-lg transition-all duration-300 ease-out-smooth"
+          className="premium-card group relative overflow-hidden bg-linear-to-br from-surface to-surface/95 p-5 shadow-surface hover:-translate-y-0.5 hover:shadow-lg transition-all duration-300 ease-out-smooth"
           style={{ "--card-glow": "#3b82f6" } as React.CSSProperties}
         >
           {/* Decorative Glow Shape */}
@@ -185,7 +185,7 @@ export function SalesOverview() {
 
       {/* Team Leaderboard */}
       <Card 
-        className="premium-card group relative overflow-hidden bg-gradient-to-br from-surface to-surface/95 p-5 shadow-surface hover:-translate-y-0.5 hover:shadow-lg transition-all duration-300 ease-out-smooth"
+        className="premium-card group relative overflow-hidden bg-linear-to-br from-surface to-surface/95 p-5 shadow-surface hover:-translate-y-0.5 hover:shadow-lg transition-all duration-300 ease-out-smooth"
         style={{ "--card-glow": "var(--success)" } as React.CSSProperties}
       >
         {/* Decorative Glow Shape */}

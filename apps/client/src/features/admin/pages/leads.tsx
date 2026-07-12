@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { Plus, Upload, Search, ShieldCheck, Pencil } from "lucide-react";
 import { useAdminLeads } from "../hooks/use-admin-leads";
-import { PhaseBadge } from "../../../components/ui/phase-badge";
 import { FileDropzone } from "../../../components/ui/file-dropzone";
 import { LeadForm } from "../../../components/forms/lead-form";
 import { phaseOptions, formatDate, toDateTimeLocalValue } from "../../../lib/utils/format";
