@@ -1,61 +1,26 @@
 # Deployment
 
-See [DEPLOYMENT_CHECKLIST.md](DEPLOYMENT_CHECKLIST.md) for the step-by-step low-hassle path.
+ETCRM deploys the client to Vercel and the API image to Dokploy. PostgreSQL is the only database in every environment.
 
-The deployment plan is:
+Unlike previous versions, database migrations and administrator bootstrapping run **automatically inside the API container at app startup**. This removes the need for a self-hosted CI runner with direct database access.
 
-- Frontend: Vercel
-- Backend API: Dokploy Docker app
-- Database: Dokploy Postgres
+## Deployment Steps
 
-## 1. Create Dokploy Database
-
-Create a Dokploy Postgres database service and copy its internal connection string.
-
-For hosted Postgres, use `server/prisma/schema.postgres.prisma`. Keep `schema.prisma` for local SQLite development.
-
-## 2. Deploy API on Dokploy
-
-Create a Dokploy application from the GitHub repo and deploy it with the root `Dockerfile`, or pull the prebuilt image from GitHub Container Registry.
-
-- Repository: `nebasami123/ETCRM`
-- Branch: `main`
-- Dockerfile path: `Dockerfile`
-- Published/internal app port: `4000`
-- Health check path: `/health`
-
-If the VPS is too small to build Docker images reliably, use the GitHub-built image instead:
-
-- Image: `ghcr.io/nebasami123/etcrm-api:latest`
-- Internal app port: `4000`
-- Health check path: `/health`
-
-Environment variables:
-
-- `DATABASE_URL`: Dokploy Postgres internal connection string
-- `JWT_SECRET`: long random value
-- `CLIENT_URL`: Vercel frontend URL
-- `ADMIN_NAME`: first production admin name
-- `ADMIN_EMAIL`: first production admin email
-- `ADMIN_PASSWORD`: first production admin password, minimum 12 characters
-
-The Docker start command generates Prisma Client, pushes the hosted Postgres schema, seeds/upserts the production admin from the `ADMIN_*` environment variables, and starts the API. No manual seed command is needed in the Dokploy terminal.
-
-## 3. Deploy Frontend on Vercel
-
-Create a Vercel project from the GitHub repo:
-
-- Root directory: `./`
-- Install command: `pnpm install --frozen-lockfile`
-- Build command: `pnpm --dir client build`
-- Output directory: `client/dist`
-
-Environment variable:
-
-- `VITE_API_URL=https://api.buanbua.online/api`
-
-Then update Dokploy `CLIENT_URL` to `https://www.buanbua.online`.
-
-## 4. First Login
-
-Use the admin email/password you provided through `ADMIN_EMAIL` and `ADMIN_PASSWORD`.
+1. **Database Setup**: Back up the current Dokploy database and provision a new empty PostgreSQL database.
+2. **Configure API on Dokploy**: Configure the Dokploy API application with the required environment variables:
+   - `DATABASE_URL`: Connection string to your production database.
+   - `BETTER_AUTH_SECRET`: A secure key (at least 32 random characters).
+   - `BETTER_AUTH_URL`: The public URL of your backend.
+   - `CLIENT_URL`: The public URL of your frontend.
+   - `BUSINESS_TIME_ZONE`: e.g. `Africa/Addis_Ababa`.
+   - `ADMIN_NAME`, `ADMIN_EMAIL`, `ADMIN_PASSWORD`: Used to bootstrap the admin account on startup.
+3. **Configure Vercel**: Configure Vercel with:
+   - `VITE_API_URL=https://YOUR_API/api`
+   - `VITE_AUTH_URL=https://YOUR_API`
+4. **Configure GitHub Secrets**: Set `DOKPLOY_DEPLOY_WEBHOOK` as a repository secret in GitHub.
+5. **Push to `main`**: A standard GitHub-hosted runner (`ubuntu-latest`) runs unit tests, builds the production Docker image, pushes it to GitHub Container Registry, and triggers the Dokploy rollout.
+6. **Container Startup**: When Dokploy spins up the container, it automatically runs:
+   - `prisma migrate deploy` to update the database schema.
+   - `tsx prisma/seed-production.ts` to bootstrap the admin account (idempotent).
+   - The Express application itself.
+7. **Verification**: Verify `/health`, sign in as the bootstrap admin, and then decommission the old database once verified.

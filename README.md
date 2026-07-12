@@ -1,196 +1,74 @@
 # ETCRM
 
-ETCRM is a role-based customer relationship management app for lead intake, assignment, sales follow-up, quota tracking, and operational reporting. It gives administrators a control center for managing sales users and lead data, while sales users get a focused workspace for daily calls, notes, appointments, and pipeline updates.
+ETCRM is a React + Express CRM for collaborative sales teams. It uses one PostgreSQL schema in every environment, Better Auth cookie sessions, and an auditable lead timeline.
 
-The project is TypeScript-first across the React client, Express API, Prisma seed scripts, and local helper scripts.
+## Local setup
 
-## What The App Does
+Prerequisites: Node 22+, pnpm 11+, and Docker Desktop (or another Compose-compatible Docker engine).
 
-- Authenticates Admin and Sales users with role-based routing.
-- Lets Admin users create sales accounts, import leads, assign leads, manage quotas, review activity, and export reports.
-- Lets Sales users view their daily queue, add leads, upload CSV/XLSX lead files, update lead phases, schedule appointments, and record call notes.
-- Detects duplicate leads by key contact/business fields during manual creation and imports.
-- Tracks activity for important lead and user workflows.
-- Supports local SQLite development and a separate Prisma schema for hosted Postgres deployment.
-
-## Tech Stack
-
-| Area | Tools |
-| --- | --- |
-| Client | React 18, Vite, TypeScript, Tailwind CSS, Recharts, Axios |
-| Server | Node.js, Express 5, TypeScript, Prisma, Zod |
-| Runtime | `tsx` for running TypeScript server and seed scripts directly |
-| Database | SQLite locally, Postgres deployment schema available |
-| Imports | CSV and XLSX lead upload support |
-| Package manager | pnpm workspaces |
-
-## Repository Layout
-
-```text
-ETCRM/
-  client/                 React + Vite frontend
-  server/                 Express + Prisma API
-  docs/                   Cleanup and architecture conventions
-  scripts/                Local helper scripts
-  package.json            Workspace-level scripts
-  pnpm-workspace.yaml     Workspace definition
-```
-
-Important backend folders:
-
-```text
-server/src/
-  app.ts                  Express app setup, CORS, routes, middleware
-  server.ts               API entrypoint
-  config/db.ts            Prisma client setup
-  routes/                 Route registration only
-  controllers/            HTTP adapters
-  features/
-    admin/                Admin queries and commands
-    sales/                Sales queries and commands
-    auth/                 Auth commands
-    leads/                Shared lead services and import workflow
-    activity/             Activity logging service
-  middleware/             Auth and error middleware
-  types/                  Express request augmentation
-  utils/                  Pure low-level helpers
-```
-
-The backend uses a minimal command/query split. Controllers stay thin: they read request data, validate external input, call a feature query or command, and return the HTTP response. Prisma remains the source of truth for database models.
-
-## Local Development
-
-Install dependencies:
-
-```bash
+```powershell
 pnpm install
-```
-
-Sync the local SQLite database from the Prisma schema:
-
-```bash
-pnpm --dir server prisma db push
-```
-
-Seed local development data:
-
-```bash
-pnpm seed
-```
-
-Run the client and API together:
-
-```bash
-pnpm dev
-```
-
-Default local URLs:
-
-- Client: http://127.0.0.1:5173
-- API: http://127.0.0.1:4000
-- Health check: http://127.0.0.1:4000/health
-
-If the default ports are already in use, run each side manually with alternate ports:
-
-```bash
-set PORT=4010 && set CLIENT_URL=http://127.0.0.1:5175,http://127.0.0.1:5173 && pnpm --dir server dev
-set VITE_API_URL=http://127.0.0.1:4010/api && pnpm --dir client dev --host 127.0.0.1 --port 5175
-```
-
-## Environment Variables
-
-Server `.env` values:
-
-```env
-DATABASE_URL="file:./dev.db"
-JWT_SECRET="replace-with-a-secure-secret"
-PORT=4000
-CLIENT_URL="http://127.0.0.1:5173"
-```
-
-Client development variable when the API is not on the default port:
-
-```env
-VITE_API_URL="http://127.0.0.1:4000/api"
-```
-
-Do not commit real production secrets.
-
-## Scripts
-
-Workspace scripts:
-
-```bash
-pnpm dev
-pnpm build
-pnpm seed
+Copy-Item apps\server\.env.example apps\server\.env
+Copy-Item apps\client\.env.exampVle apps\client\.env
+docker compose up -d
 pnpm db:migrate
+pnpm seed
+pnpm dev
 ```
 
-Client scripts:
+The Compose database is PostgreSQL 18 on `127.0.0.1:5433`; it creates isolated `etcrm_dev`, `etcrm_shadow`, and `etcrm_test` databases. Do not use `prisma db push` for this project.
 
-```bash
-pnpm --dir client dev
-pnpm --dir client build
-pnpm --dir client lint
-pnpm --dir client lint:fix
+Local URLs:
+
+- Client: `http://127.0.0.1:5173`
+- API health: `http://127.0.0.1:4000/health`
+
+Demo seed accounts: `admin@etcrm.local`, `sales@etcrm.local`, and `maria@etcrm.local`; each has password `password123`. These accounts are development-only.
+
+## Environment
+
+`apps/server/.env` must provide:
+
+```env
+DATABASE_URL="postgresql://etcrm:etcrm@127.0.0.1:5433/etcrm_dev?schema=public"
+SHADOW_DATABASE_URL="postgresql://etcrm:etcrm@127.0.0.1:5433/etcrm_shadow?schema=public"
+TEST_DATABASE_URL="postgresql://etcrm:etcrm@127.0.0.1:5433/etcrm_test?schema=public"
+BETTER_AUTH_SECRET="at-least-32-random-characters-long"
+BETTER_AUTH_URL="http://127.0.0.1:4000"
+CLIENT_URL="http://127.0.0.1:5173"
+BUSINESS_TIME_ZONE="Africa/Addis_Ababa"
+UPLOAD_MAX_BYTES=10485760
+UPLOAD_MAX_ROWS=10000
 ```
 
-Server scripts:
+Set `VITE_API_URL` and `VITE_AUTH_URL` in `apps/client/.env`. See the committed example files for the full list.
 
-```bash
-pnpm --dir server dev
-pnpm --dir server start
-pnpm --dir server typecheck
-pnpm --dir server seed
-pnpm --dir server seed:prod
-pnpm --dir server prisma db push
+## Database workflow
+
+`apps/server/prisma/schema.prisma` and the committed `apps/server/prisma/migrations/` are canonical.
+
+```powershell
+pnpm db:migrate                      # local development: prisma migrate dev
+pnpm --dir apps/server migrate:deploy # production/CI only: prisma migrate deploy
+pnpm db:reset                        # reset local development DB
 ```
 
-## Database Notes
+Production migrations run automatically inside the API container at app startup. During rollout, the container runs `prisma migrate deploy` followed by the idempotent bootstrap-admin command before starting the Express server.
 
-Local development should use Prisma commands instead of manual SQL:
+## Architecture
 
-```bash
-pnpm --dir server prisma db push
-pnpm --dir server prisma generate
-pnpm --dir server seed
-```
+- `apps/server/src/auth`: Better Auth and Prisma PostgreSQL adapter.
+- `apps/server/src/features/leads/leadWorkflowService.ts`: transactional lead creation/import, atomic claim, transfer, timeline, phase, and schedule mechanics.
+- `apps/server/src/features/admin` and `apps/server/src/features/sales`: role-specific policies and queries over the shared workflow.
+- `ActivityEvent`: immutable activity timeline; it records actor, phase transitions, notes, and optional conversion credit.
 
-`server/prisma/schema.prisma` is the local SQLite schema. `server/prisma/schema.postgres.prisma` exists for hosted Postgres deployment while the project keeps separate local and hosted database settings.
-
-SQL files in `server/prisma/` are manual bootstrap or historical migration artifacts. They are not required for normal local development when the Prisma schema is current.
-
-## TypeScript Status
-
-- Client source uses `.ts` and `.tsx`.
-- Server source uses `.ts`.
-- Prisma seed scripts use TypeScript and run through `tsx`.
-- Root build checks client, server, and script TypeScript.
-- The server runs TypeScript directly in development and production via `tsx`; no server `dist` build is currently required.
+Claims prevent races for an unclaimed lead. Sales users can still collaborate and record work on an already-claimed lead; the UI identifies the current claimer and every action remains attributable. Only an admin selects conversion credit on `CLOSED_WON`.
 
 ## Verification
 
-Run these before opening or merging a PR:
-
-```bash
-pnpm --dir client lint
-pnpm --dir client build
-pnpm --dir server typecheck
+```powershell
+pnpm test
 pnpm build
 ```
 
-Recommended smoke checks:
-
-- Sign in with seeded Admin and Sales users.
-- Confirm the Admin dashboard loads summary stats, lead management, quota management, recent activity, imports, and report export.
-- Confirm the Sales dashboard loads quota progress, pipeline mix, lead queue, lead detail, phase updates, appointments, notes, manual lead creation, and uploads.
-- Confirm `/health` returns `{"status":"ok"}`.
-
-## Documentation
-
-- `docs/client-cleanup-conventions.md`: frontend cleanup conventions
-- `docs/server-cleanup-conventions.md`: backend cleanup conventions
-- `PROJECT_STATUS.md`: project status and deployment notes
-- `DEPLOYMENT.md`: deployment reference
-- `DEPLOYMENT_CHECKLIST.md`: deployment checklist
+Before a production cutover, back up the old mock database, create a fresh Dokploy PostgreSQL database, set the new URLs/secrets, trigger the deployment build, verify health and bootstrap-admin login, then verify the Dokploy application is running successfully. Retain the old DB only as the rollback snapshot.

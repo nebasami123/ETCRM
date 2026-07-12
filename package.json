@@ -3,15 +3,20 @@
   "private": true,
   "version": "0.1.0",
   "scripts": {
-    "dev": "concurrently \"pnpm --dir server dev\" \"pnpm --dir client dev --host 127.0.0.1\"",
-    "build": "pnpm --dir client build && pnpm --dir server typecheck && tsc --noEmit -p tsconfig.scripts.json",
-    "seed": "pnpm --dir server seed",
-    "db:migrate": "pnpm --dir server prisma migrate dev --name init"
+    "dev": "concurrently \"pnpm --dir apps/server dev\" \"pnpm --dir apps/client dev --host 127.0.0.1\"",
+    "build": "pnpm --dir apps/client build && pnpm --dir apps/server typecheck && tsc --noEmit -p tsconfig.scripts.json",
+    "test": "vitest run --config apps/server/vitest.config.ts",
+    "seed": "pnpm --dir apps/server seed",
+    "db:migrate": "pnpm --dir apps/server migrate:dev",
+    "db:deploy": "pnpm --dir apps/server migrate:deploy",
+    "db:reset": "pnpm --dir apps/server db:reset"
   },
   "devDependencies": {
     "@types/node": "^24.10.1",
     "concurrently": "^9.1.2",
     "typescript": "^5.9.3",
-    "typescript-eslint": "8.61.0"
-  }
+    "typescript-eslint": "8.61.0",
+    "vitest": "^2.1.9"
+  },
+  "packageManager": "pnpm@11.1.2+sha512.415a1cc25974731e75455c1468371be74c5aa5fb7621b50d4056d222451609f11412f23fd602e6169f1e060466641f798597e1be961a10688836a67b16569499"
 }

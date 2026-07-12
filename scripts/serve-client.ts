@@ -2,7 +2,7 @@ import { createReadStream, existsSync, statSync } from "node:fs";
 import { createServer } from "node:http";
 import { extname, join, normalize } from "node:path";
 
-const root = join(process.cwd(), "client", "dist");
+const root = join(process.cwd(), "apps", "client", "dist");
 const port = Number(process.env.CLIENT_PORT || 5173);
 
 const contentTypes: Record<string, string> = {

@@ -5,12 +5,14 @@ WORKDIR /app
 RUN corepack enable
 
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
-COPY server/package.json ./server/package.json
-COPY client/package.json ./client/package.json
+COPY apps/server/package.json ./apps/server/package.json
+COPY apps/client/package.json ./apps/client/package.json
 
 RUN pnpm install --frozen-lockfile
 
-COPY server ./server
+COPY apps/server ./apps/server
+
+RUN pnpm --dir apps/server prisma:generate
 
 ARG APP_VERSION=0.0.0
 ARG BUILD_COMMIT=local
@@ -21,4 +23,4 @@ ENV BUILD_COMMIT=$BUILD_COMMIT
 
 EXPOSE 4000
 
-CMD ["sh", "-c", "pnpm --dir server prisma:prod && pnpm --dir server db:prod:push && pnpm --dir server seed:prod && pnpm --dir server start"]
+CMD ["pnpm", "--dir", "apps/server", "start"]
