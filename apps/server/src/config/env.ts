@@ -28,4 +28,26 @@ if (!parsed.success) {
 }
 
 export const env = parsed.data;
-export const allowedOrigins = env.CLIENT_URL.split(",").map((origin) => origin.trim()).filter(Boolean);
+
+const baseOrigins = env.CLIENT_URL.split(",").map((origin) => origin.trim()).filter(Boolean);
+const derivedOrigins = new Set<string>();
+
+for (const origin of baseOrigins) {
+  derivedOrigins.add(origin);
+  try {
+    const url = new URL(origin);
+    if (url.hostname.startsWith("www.")) {
+      const nonWwwHostname = url.hostname.substring(4);
+      const nonWwwOrigin = `${url.protocol}//${nonWwwHostname}${url.port ? `:${url.port}` : ""}`;
+      derivedOrigins.add(nonWwwOrigin);
+    } else {
+      const wwwOrigin = `${url.protocol}//www.${url.hostname}${url.port ? `:${url.port}` : ""}`;
+      derivedOrigins.add(wwwOrigin);
+    }
+  } catch {
+    // Ignore invalid URLs in CLIENT_URL
+  }
+}
+
+export const allowedOrigins = Array.from(derivedOrigins);
+
