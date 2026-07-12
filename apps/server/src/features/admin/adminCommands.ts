@@ -2,9 +2,11 @@ import { Prisma } from "@prisma/client";
 import { auth } from "../../auth/auth.js";
 import { prisma } from "../../config/db.js";
 import { parseBusinessDate } from "../../utils/dates.js";
-import { createLead, importLeads, setLeadClaim, type LeadInput } from "../leads/leadWorkflowService.js";
+import { createLead, importLeads, setLeadClaim, updateLead, type LeadInput } from "../leads/leadWorkflowService.js";
 
-export async function createAdminSalesUser(input: { name: string; email: string; password: string }) {
+export const createAdminSalesUser = ({ name, email, password }: { name: string; email: string; password: string }) => createAdminSalesUserFn({ name, email, password });
+
+async function createAdminSalesUserFn(input: { name: string; email: string; password: string }) {
   try {
     const user = await auth.api.createUser({ body: { ...input, role: "SALES" as never } });
     return { status: "ok" as const, user };
@@ -25,6 +27,8 @@ export async function resetAdminSalesPassword({ userId, newPassword, headers }: 
 export const createAdminLead = ({ input, userId }: { input: LeadInput; userId: string }) => createLead({ input, actorId: userId });
 export const uploadAdminLeads = ({ file, userId }: { file: Express.Multer.File; userId: string }) => importLeads({ file, actorId: userId, source: "admin-upload" });
 export const assignAdminLead = ({ leadId, salesUserId, userId }: { leadId: string; salesUserId: string | null; userId: string }) => setLeadClaim({ leadId, salesUserId, adminId: userId });
+export const updateAdminLead = ({ leadId, input, userId }: { leadId: string; input: LeadInput; userId: string }) => updateLead({ leadId, input, actorId: userId });
+
 
 export async function upsertAdminQuota(input: { salesUserId: string; date: string; callsTarget: number; leadsTarget: number }) {
   return prisma.quota.upsert({

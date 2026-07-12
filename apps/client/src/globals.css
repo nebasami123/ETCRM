@@ -1,0 +1,177 @@
+@layer theme, base, components, utilities;
+
+@import "tailwindcss";
+@import "@heroui/styles";
+@import "./themes/etcrm.css" layer(theme);
+
+@theme {
+  --font-sans: "Sora", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+
+  /* Custom easing curves from Emil Kowalski design engineering */
+  --ease-out-smooth: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out-smooth: cubic-bezier(0.77, 0, 0.175, 1);
+  --ease-out-fluid: cubic-bezier(0.32, 0.72, 0, 1);
+
+  /* Map custom variables for Tailwind classes */
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-surface: var(--surface);
+  --color-surface-foreground: var(--surface-foreground);
+  --color-overlay: var(--overlay);
+  --color-overlay-foreground: var(--overlay-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-muted: var(--muted);
+  --color-border: var(--border);
+  --color-separator: var(--separator);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-danger: var(--danger);
+  --color-danger-foreground: var(--danger-foreground);
+}
+
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
+
+  html {
+    scroll-behavior: smooth;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  }
+
+  body {
+    margin: 0;
+    min-height: 100vh;
+    font-family: var(--font-sans);
+    background-color: var(--background);
+    color: var(--foreground);
+    letter-spacing: -0.015em;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    transition: background-color 300ms var(--ease-out-smooth), color 300ms var(--ease-out-smooth);
+  }
+
+  /* Focus rings override */
+  :focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+}
+
+@layer components {
+  /* Emil-design-eng: button active scaling feedback */
+  .btn-interactive {
+    cursor: pointer;
+    transition: transform 120ms var(--ease-out-smooth), 
+                background-color 300ms var(--ease-out-smooth), 
+                border-color 300ms var(--ease-out-smooth), 
+                opacity 300ms var(--ease-out-smooth);
+  }
+  .btn-interactive:active:not(:disabled) {
+    transform: scale(0.97);
+  }
+
+  /* Fade transitions for pages */
+  .page-enter {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  .page-enter-active {
+    opacity: 1;
+    transform: translateY(0);
+    transition: opacity 250ms var(--ease-out-smooth), transform 250ms var(--ease-out-smooth);
+  }
+
+  /* Scrollbars customization */
+  [data-scrollbar="thin"]::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  [data-scrollbar="thin"]::-webkit-scrollbar-thumb {
+    background-color: var(--scrollbar-thumb);
+    border-radius: 9999px;
+  }
+  [data-scrollbar="thin"]::-webkit-scrollbar-track {
+    background-color: transparent;
+  }
+}
+
+/* Accessibility: prefers-reduced-motion support */
+@media (prefers-reduced-motion: reduce) {
+  *, ::before, ::after {
+    animation-delay: -1ms !important;
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    background-attachment: initial !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0ms !important;
+    transition-delay: 0ms !important;
+  }
+  
+  .btn-interactive:active:not(:disabled) {
+    transform: none !important;
+  }
+}
+
+/* Remove Recharts SVG focus outlines on click/focus */
+.recharts-wrapper *:focus {
+  outline: none !important;
+}
+
+/* Premium Gradient Border Card utility */
+.premium-card {
+  --card-border-start: oklch(0.12 0.01 155 / 12%);
+  --card-border-end: oklch(0.12 0.01 155 / 4%);
+  --card-glow: var(--accent);
+  
+  position: relative;
+  background: var(--surface);
+  border: 1px solid transparent;
+  border-radius: 12px;
+  background-image: linear-gradient(var(--surface), var(--surface)), 
+                    linear-gradient(135deg, var(--card-border-start), var(--card-border-end));
+  background-origin: border-box;
+  background-clip: padding-box, border-box;
+  transition: transform 400ms var(--ease-out-smooth), 
+              box-shadow 400ms var(--ease-out-smooth);
+}
+
+.premium-card::before {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: 12px;
+  padding: 1px;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--card-glow) 15%, transparent), var(--card-border-start));
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 400ms var(--ease-out-smooth);
+  z-index: 1;
+}
+
+.premium-card:hover::before {
+  opacity: 1;
+}
+
+.premium-card:hover {
+  transform: translateY(-1.5px);
+  box-shadow: 0 12px 24px -10px oklch(from var(--card-glow) l c h / 8%), 
+              0 6px 12px -8px oklch(from var(--card-glow) l c h / 4%);
+}
+
+.dark .premium-card {
+  --card-border-start: oklch(0.95 0.005 155 / 12%);
+  --card-border-end: oklch(0.95 0.005 155 / 4%);
+}
+
+
+

@@ -3,7 +3,7 @@ import { leadInputSchema } from "@etcrm/contracts";
 import type { RequestHandler } from "express";
 import { z } from "zod";
 import { addSalesCallNote, claimSalesLead, createSalesLead, requestSalesClaimTransfer, updateSalesAppointment, updateSalesFollowUp, updateSalesLeadPhase, uploadSalesLeads } from "../features/sales/salesCommands.js";
-import { getSalesDashboard, getSalesLead, listSalesLeads } from "../features/sales/salesQueries.js";
+import { getSalesDashboard, getSalesLeaderboard as getSalesLeaderboardQuery, getSalesLead, listSalesLeads } from "../features/sales/salesQueries.js";
 
 const phaseSchema = z.object({ phase: z.nativeEnum(LeadPhase) });
 const noteSchema = z.object({ note: z.string().trim().min(2).max(5000) });
@@ -13,6 +13,7 @@ const transferSchema = z.object({ reason: z.string().trim().min(3).max(1000) });
 const leadSchema = leadInputSchema;
 
 export const dashboard: RequestHandler = async (req, res, next) => { try { res.json(await getSalesDashboard(req.user.id)); } catch (error) { next(error); } };
+export const getLeaderboard: RequestHandler = async (req, res, next) => { try { res.json(await getSalesLeaderboardQuery(req.user.id)); } catch (error) { next(error); } };
 export const listMyLeads: RequestHandler = async (req, res, next) => { try { res.json(await listSalesLeads({ search: String(req.query.search || ""), phase: String(req.query.phase || ""), page: Number(req.query.page || 1), pageSize: Number(req.query.pageSize || 50) })); } catch (error) { next(error); } };
 export const getLead: RequestHandler = async (req, res, next) => { try { const lead = await getSalesLead(String(req.params.id)); if (!lead) return res.status(404).json({ message: "Lead not found" }); res.json({ lead }); } catch (error) { next(error); } };
 export const updateLeadPhase: RequestHandler = async (req, res, next) => { try { const phase = phaseSchema.parse(req.body).phase; if (phase === LeadPhase.CLOSED_WON) return res.status(403).json({ message: "An admin must close a lead as won and select conversion credit" }); const lead = await updateSalesLeadPhase({ leadId: String(req.params.id), userId: req.user.id, phase }); if (!lead) return res.status(404).json({ message: "Lead not found" }); res.json({ lead }); } catch (error) { next(error); } };

@@ -16,6 +16,45 @@ export async function getSalesDashboard(userId: string) {
   return { quota: quota || { callsTarget: 0, leadsTarget: 0, date: parseBusinessDate() }, progress: { callsCompleted, leadsProcessed: processedLeads.length }, todoLeads, phaseCounts };
 }
 
+export async function getSalesLeaderboard(userId: string) {
+  const users = await prisma.user.findMany({
+    where: { role: "SALES" },
+    select: {
+      id: true,
+      name: true,
+      claimedLeads: { select: { id: true } },
+      conversionCredits: {
+        where: { type: ActivityType.PHASE_CHANGED },
+        select: { toPhase: true }
+      },
+      events: { select: { type: true } }
+    },
+    orderBy: { name: "asc" }
+  });
+
+  const leaderboard = users.map((user) => {
+    const conversions = user.conversionCredits.filter((e) => e.toPhase === LeadPhase.CLOSED_WON).length;
+    const losses = user.conversionCredits.filter((e) => e.toPhase === LeadPhase.CLOSED_LOST).length;
+    const totalDecisions = conversions + losses;
+    const callNotes = user.events.filter((e) => e.type === ActivityType.CALL_NOTE).length;
+    const totalActivity = user.events.length;
+
+    return {
+      userId: user.id,
+      name: user.name,
+      claimedLeads: user.claimedLeads.length,
+      conversions,
+      losses,
+      conversionRate: totalDecisions > 0 ? Math.round((conversions / totalDecisions) * 100) : 0,
+      callNotes,
+      totalActivity
+    };
+  });
+
+  const myStats = leaderboard.find((e) => e.userId === userId) || null;
+  return { leaderboard, myStats };
+}
+
 export async function listSalesLeads(filters: { search?: string; phase?: string; page?: number; pageSize?: number }) {
   const search = filters.search?.trim();
   const phase = filters.phase?.trim();

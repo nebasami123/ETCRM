@@ -169,4 +169,55 @@ export async function updateLeadSchedule({ leadId, actorId, kind, value }: { lea
   });
 }
 
+export async function updateLead({ leadId, input, actorId }: { leadId: string; input: LeadInput; actorId: string }) {
+  const licenceNumber = input.licenceNumber?.trim() || null;
+  const pKey = phoneKey(input.phoneNumber);
+  const lKey = licenceKey(licenceNumber);
+
+  return prisma.$transaction(async (db) => {
+    const existing = await db.lead.findUnique({ where: { id: leadId } });
+    if (!existing) return { status: "not-found" as const };
+
+    const duplicate = await db.lead.findFirst({
+      where: {
+        id: { not: leadId },
+        OR: [
+          { phoneKey: pKey },
+          ...(lKey ? [{ licenceKey: lKey }] : [])
+        ]
+      },
+      select: { id: true, fullName: true, phoneNumber: true, licenceNumber: true }
+    });
+    if (duplicate) return { status: "duplicate" as const, duplicate };
+
+    const updated = await db.lead.update({
+      where: { id: leadId },
+      data: {
+        fullName: input.fullName.trim(),
+        phoneNumber: input.phoneNumber.trim(),
+        phoneKey: pKey,
+        email: input.email?.trim() || "",
+        licenceNumber,
+        licenceKey: lKey,
+        appointmentDate: parseOptionalDate(input.appointmentDate),
+        nextFollowUpAt: parseOptionalDate(input.nextFollowUpAt),
+        businessName: input.businessName?.trim() || null,
+        businessRegion: input.businessRegion?.trim() || null,
+        businessZone: input.businessZone?.trim() || null,
+        businessWoreda: input.businessWoreda?.trim() || null,
+        businessKebele: input.businessKebele?.trim() || null,
+        houseNumber: input.houseNumber?.trim() || null,
+        businessTelephone: input.businessTelephone?.trim() || null
+      },
+      include: leadDetailInclude
+    });
+
+    // Write a call note activity event log to document the administrative details update
+    await event(db, { actorId, leadId, type: ActivityType.CALL_NOTE, note: `Lead details updated by Administrator` });
+
+    return { status: "ok" as const, lead: updated };
+  });
+}
+
 export type ImportResult = { status: "ok" | "empty"; imported: number; skipped: number; skippedRows: SkippedLeadRow[] };
+

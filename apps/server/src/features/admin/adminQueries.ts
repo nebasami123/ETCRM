@@ -65,6 +65,42 @@ export async function listClaimTransferRequests(status = "PENDING") {
   });
 }
 
+export async function getLeaderboard() {
+  const users = await prisma.user.findMany({
+    where: { role: "SALES" },
+    select: {
+      id: true,
+      name: true,
+      claimedLeads: { select: { id: true } },
+      conversionCredits: {
+        where: { type: ActivityType.PHASE_CHANGED },
+        select: { toPhase: true }
+      },
+      events: { select: { type: true } }
+    },
+    orderBy: { name: "asc" }
+  });
+
+  return users.map((user) => {
+    const conversions = user.conversionCredits.filter((e) => e.toPhase === LeadPhase.CLOSED_WON).length;
+    const losses = user.conversionCredits.filter((e) => e.toPhase === LeadPhase.CLOSED_LOST).length;
+    const totalDecisions = conversions + losses;
+    const callNotes = user.events.filter((e) => e.type === ActivityType.CALL_NOTE).length;
+    const totalActivity = user.events.length;
+
+    return {
+      userId: user.id,
+      name: user.name,
+      claimedLeads: user.claimedLeads.length,
+      conversions,
+      losses,
+      conversionRate: totalDecisions > 0 ? Math.round((conversions / totalDecisions) * 100) : 0,
+      callNotes,
+      totalActivity
+    };
+  });
+}
+
 export async function getAdminReportRows({ fromInput, toInput }: { fromInput: unknown; toInput: unknown }) {
   const from = fromInput ? startOfBusinessDay(new Date(String(fromInput))) : startOfBusinessDay(new Date(Date.now() - 6 * 86_400_000));
   const to = toInput ? endOfBusinessDay(new Date(String(toInput))) : endOfBusinessDay();

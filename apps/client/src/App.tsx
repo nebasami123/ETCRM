@@ -1,14 +1,13 @@
 import { Navigate, Route, Routes } from "react-router-dom";
-import { AdminDashboard } from "./pages/admin/AdminDashboard";
-import { LoginPage } from "./pages/auth/LoginPage";
-import { SalesDashboard } from "./pages/sales/SalesDashboard";
-import { ProtectedRoute } from "./routes/ProtectedRoute";
-import { useAuth } from "./utils/AuthContext";
+import { useAuth } from "./hooks/use-auth";
+import { LoginPage } from "./features/auth/pages/login-page";
+import { ProtectedRoute } from "./routes/protected-route";
+import { AdminRoutes } from "./routes/admin-routes";
+import { SalesRoutes } from "./routes/sales-routes";
 
 function HomeRedirect() {
   const { user, isAuthenticated } = useAuth();
-  if (!isAuthenticated) return <Navigate to="/login" replace />;
-  if (!user) return <Navigate to="/login" replace />;
+  if (!isAuthenticated || !user) return <Navigate to="/login" replace />;
   return <Navigate to={user.role === "ADMIN" ? "/admin" : "/sales"} replace />;
 }
 
@@ -18,21 +17,24 @@ export function App() {
       <Route path="/" element={<HomeRedirect />} />
       <Route path="/login" element={<LoginPage />} />
       <Route
-        path="/admin"
+        path="/admin/*"
         element={
           <ProtectedRoute role="ADMIN">
-            <AdminDashboard />
+            <AdminRoutes />
           </ProtectedRoute>
         }
       />
       <Route
-        path="/sales"
+        path="/sales/*"
         element={
           <ProtectedRoute role="SALES">
-            <SalesDashboard />
+            <SalesRoutes />
           </ProtectedRoute>
         }
       />
+      {/* Catch-all fallback */}
+      <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
 }
+export default App;

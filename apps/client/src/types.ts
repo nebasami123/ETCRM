@@ -85,6 +85,8 @@ export interface Activity {
   actor?: UserSummary | null;
   creditedUser?: UserSummary | null;
   note?: string | null;
+  fromPhase?: LeadPhase | null;
+  toPhase?: LeadPhase | null;
   lead?: Pick<Lead, "id" | "fullName" | "phoneNumber" | "phase"> | null;
 }
 
@@ -121,6 +123,19 @@ export interface SalesLeadForm {
 
 export type LeadFormState = AdminLeadForm | SalesLeadForm;
 
+/** Concrete shape produced by the LeadForm component's handleSubmit */
+export interface LeadFormData {
+  fullName: string;
+  phoneNumber: string;
+  email: string;
+  businessName: string;
+  licenceNumber: string;
+  businessRegion: string;
+  businessWoreda: string;
+  appointmentDate: string | null;
+  assignedToId?: string;
+}
+
 export interface SalesUserForm {
   name: string;
   email: string;
@@ -145,6 +160,17 @@ export interface SalesDashboardData {
   };
   todoLeads: Lead[];
   phaseCounts: Array<{ phase: LeadPhase; _count: { phase: number } }>;
+}
+
+export interface LeaderboardEntry {
+  userId: string;
+  name: string;
+  claimedLeads: number;
+  conversions: number;
+  losses: number;
+  conversionRate: number;
+  callNotes: number;
+  totalActivity: number;
 }
 
 export type SubmitHandler = (event: FormEvent<HTMLFormElement>) => void | Promise<void>;

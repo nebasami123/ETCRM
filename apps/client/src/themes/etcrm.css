@@ -1,0 +1,150 @@
+@layer theme {
+  /* ETCRM Light Theme */
+  :root,
+  [data-theme="light"] {
+    color-scheme: light;
+
+    /* Primitive Colors */
+    --white: oklch(100% 0 0);
+    --black: oklch(0% 0 0);
+    --snow: oklch(0.99 0 0);
+    --eclipse: oklch(0.12 0.01 155);
+
+    /* Spacing & Layout */
+    --spacing: 0.25rem;
+    --border-width: 1px;
+    --field-border-width: 1px;
+    --disabled-opacity: 0.5;
+    --ring-offset-width: 2px;
+    --cursor-interactive: pointer;
+    --cursor-disabled: not-allowed;
+
+    /* Radius */
+    --radius: 0.625rem;
+    --field-radius: calc(var(--radius) * 1.2);
+
+    /* Base Colors */
+    --background: oklch(0.978 0.004 155); /* very soft off-white with green tint */
+    --foreground: var(--eclipse);
+
+    /* Surface: Cards, lists, etc. */
+    --surface: var(--white);
+    --surface-foreground: var(--foreground);
+
+    /* Overlay: Modals, dropdowns, etc. */
+    --overlay: var(--white);
+    --overlay-foreground: var(--foreground);
+
+    --muted: oklch(0.55 0.01 155);
+
+    --scrollbar-thumb: oklch(0.12 0.01 155 / 15%);
+    --scrollbar-track: transparent;
+    --scrollbar-gutter: auto;
+    --scrollbar-width: thin;
+    --scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+    --scrollbar: var(--scrollbar-thumb);
+
+    --default: oklch(0.94 0.005 155);
+    --default-foreground: var(--eclipse);
+
+    /* Brand Green Accent */
+    --accent: oklch(0.52 0.14 155);
+    --accent-foreground: var(--snow);
+
+    /* Form Field Defaults */
+    --field-background: var(--white);
+    --field-foreground: var(--foreground);
+    --field-placeholder: var(--muted);
+    --field-border: oklch(0.12 0.01 155 / 12%);
+
+    /* Status Colors */
+    --success: oklch(0.65 0.17 150);
+    --success-foreground: var(--snow);
+
+    --warning: oklch(0.78 0.14 75);
+    --warning-foreground: oklch(0.20 0.04 75);
+
+    --danger: oklch(0.62 0.22 25);
+    --danger-foreground: var(--snow);
+
+    /* Component specific */
+    --segment: oklch(0.96 0.005 155);
+    --segment-foreground: var(--foreground);
+
+    /* Borders */
+    --border: oklch(0.12 0.01 155 / 8%);
+    --separator: oklch(0.12 0.01 155 / 6%);
+    --focus: var(--accent);
+    --link: var(--accent);
+
+    /* Shadows */
+    --surface-shadow: 0 1px 3px oklch(0 0 0 / 4%), 0 1px 2px oklch(0 0 0 / 3%);
+    --overlay-shadow: 0 8px 30px oklch(0 0 0 / 8%), 0 2px 8px oklch(0 0 0 / 4%);
+    --field-shadow: inset 0 1px 2px oklch(0 0 0 / 2%);
+  }
+
+  /* ETCRM Dark Theme */
+  .dark,
+  [data-theme="dark"] {
+    color-scheme: dark;
+
+    /* Base Colors */
+    --background: oklch(0.145 0.012 155); /* deep dark green-black */
+    --foreground: oklch(0.95 0.005 155);
+
+    /* Surface */
+    --surface: oklch(0.18 0.012 155); /* slightly lighter than background */
+    --surface-foreground: var(--foreground);
+
+    /* Overlay */
+    --overlay: oklch(0.20 0.012 155);
+    --overlay-foreground: var(--foreground);
+
+    --muted: oklch(0.68 0.01 155);
+
+    --scrollbar-thumb: oklch(0.95 0.005 155 / 15%);
+    --scrollbar-track: transparent;
+    --scrollbar-gutter: auto;
+    --scrollbar-width: thin;
+    --scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+    --scrollbar: var(--scrollbar-thumb);
+
+    --default: oklch(0.24 0.012 155);
+    --default-foreground: oklch(0.95 0.005 155);
+
+    /* Brand Green Accent */
+    --accent: oklch(0.72 0.14 155);
+    --accent-foreground: oklch(0.12 0.01 155);
+
+    /* Form Field Defaults */
+    --field-background: oklch(0.16 0.012 155);
+    --field-foreground: var(--foreground);
+    --field-placeholder: var(--muted);
+    --field-border: oklch(0.95 0.005 155 / 12%);
+
+    /* Status Colors */
+    --success: oklch(0.72 0.17 150);
+    --success-foreground: oklch(0.12 0.01 150);
+
+    --warning: oklch(0.82 0.12 75);
+    --warning-foreground: oklch(0.15 0.03 75);
+
+    --danger: oklch(0.65 0.20 25);
+    --danger-foreground: oklch(0.12 0.01 25);
+
+    /* Component specific */
+    --segment: oklch(0.22 0.012 155);
+    --segment-foreground: var(--foreground);
+
+    /* Borders */
+    --border: oklch(0.95 0.005 155 / 8%);
+    --separator: oklch(0.95 0.005 155 / 6%);
+    --focus: var(--accent);
+    --link: var(--accent);
+
+    /* Shadows (no shadows in dark mode) */
+    --surface-shadow: 0 0 0 0 transparent;
+    --overlay-shadow: 0 0 0 0 transparent;
+    --field-shadow: 0 0 0 0 transparent;
+  }
+}

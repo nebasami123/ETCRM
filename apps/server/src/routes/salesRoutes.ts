@@ -5,6 +5,7 @@ import {
   claimLead,
   dashboard,
   getLead,
+  getLeaderboard,
   listMyLeads,
   updateAppointment,
   updateFollowUp,
@@ -19,6 +20,7 @@ export const salesRoutes = Router();
 
 salesRoutes.use(requireAuth, requireRole("SALES"));
 salesRoutes.get("/dashboard", dashboard);
+salesRoutes.get("/leaderboard", getLeaderboard);
 salesRoutes.get("/leads", listMyLeads);
 salesRoutes.post("/leads", createLead);
 salesRoutes.post("/leads/upload", leadUpload.single("file"), uploadLeads);
