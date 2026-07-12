@@ -25,6 +25,7 @@ jobs:
           cache: pnpm
 
       - run: pnpm install --frozen-lockfile
+      - run: pnpm --dir apps/server prisma:generate
       - run: pnpm test
       - run: pnpm build
       - name: Build image
