@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/server.ts",
-    "start": "prisma migrate deploy && tsx prisma/seed-production.ts && tsx src/server.ts",
+    "start": "prisma migrate deploy && tsx src/server.ts",
     "seed": "tsx prisma/seed.ts",
     "seed:prod": "tsx prisma/seed-production.ts",
     "typecheck": "tsc --noEmit",

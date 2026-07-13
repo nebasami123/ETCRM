@@ -23,18 +23,6 @@ async function main() {
     throw new Error("ADMIN_PASSWORD must be at least 12 characters.");
   }
 
-  console.log("Wiping database clean...");
-  const tables = ["ActivityEvent", "ClaimTransferRequest", "Quota", "Lead", "Session", "Account", "Verification", "User"];
-  for (const table of tables) {
-    try {
-      await prisma.$executeRawUnsafe(`TRUNCATE TABLE "${table}" CASCADE;`);
-      console.log(`Truncated table: ${table}`);
-    } catch (e) {
-      console.warn(`Could not truncate ${table}:`, e);
-    }
-  }
-  console.log("Database wiped successfully!");
-
   console.log("Seeding production admin...");
   const prodAdmin = await createUser({
     name: env.ADMIN_NAME,

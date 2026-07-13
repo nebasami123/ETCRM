@@ -2,7 +2,7 @@
 
 ETCRM deploys the client to Vercel and the API image to Dokploy. PostgreSQL is the only database in every environment.
 
-Unlike previous versions, database migrations and administrator bootstrapping run **automatically inside the API container at app startup**. This removes the need for a self-hosted CI runner with direct database access.
+Database migrations run automatically inside the API container at startup. Administrator and demo-data seeding are intentional, one-time operations run from the API terminal.
 
 ## Deployment Steps
 
@@ -21,6 +21,6 @@ Unlike previous versions, database migrations and administrator bootstrapping ru
 5. **Push to `main`**: A standard GitHub-hosted runner (`ubuntu-latest`) runs unit tests, builds the production Docker image, pushes it to GitHub Container Registry, and triggers the Dokploy rollout.
 6. **Container Startup**: When Dokploy spins up the container, it automatically runs:
    - `prisma migrate deploy` to update the database schema.
-   - `tsx prisma/seed-production.ts` to bootstrap the admin account (idempotent).
    - The Express application itself.
-7. **Verification**: Verify `/health`, sign in as the bootstrap admin, and then decommission the old database once verified.
+7. **Optional first-time seed**: From the Dokploy API terminal, run `pnpm run seed:prod` once only if you want the configured administrator and demo data. The seed does not clear existing data.
+8. **Verification**: Verify `/health`, sign in as the administrator, and then decommission the old database once verified.
