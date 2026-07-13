@@ -24,3 +24,11 @@ Database migrations run automatically inside the API container at startup. Admin
    - The Express application itself.
 7. **Optional first-time seed**: From the Dokploy API terminal, run `pnpm run seed:prod` once only if you want the configured administrator and demo data. The seed does not clear existing data.
 8. **Verification**: Verify `/health`, sign in as the administrator, and then decommission the old database once verified.
+
+## Intentional production reset
+
+To erase all ETCRM data and rebuild the schema from migrations, run the following from the Dokploy API terminal. This command requires an explicit confirmation value and never runs during normal startup:
+
+```sh
+CONFIRM_DB_RESET=RESET_ETCRM_PRODUCTION_DATABASE pnpm run db:reset:prod
+```

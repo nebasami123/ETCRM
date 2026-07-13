@@ -14,6 +14,7 @@
     "migrate:deploy": "prisma migrate deploy",
     "migrate:status": "prisma migrate status",
     "db:reset": "prisma migrate reset --force",
+    "db:reset:prod": "tsx prisma/reset-production.ts && prisma migrate deploy",
     "prisma": "prisma"
   },
   "dependencies": {
