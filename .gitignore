@@ -10,5 +10,7 @@ dist
 *.err
 uploads/*
 !uploads/.gitkeep
+apps/server/uploads/*
+!apps/server/uploads/.gitkeep
 
 .repowise
