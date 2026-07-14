@@ -141,7 +141,7 @@ model Lead {
   legalStatusNameAmh    String?
   status                String?
   licenceNumber         String?
-  licenceKey            String?   @unique
+  licenceKey            String?
   renewedTo             DateTime? @db.Timestamptz(3)
   siteId                String?
   businessName          String?
@@ -169,6 +169,7 @@ model Lead {
   claimTransferRequests ClaimTransferRequest[]
 
   @@index([phase])
+  @@index([licenceKey])
   @@index([claimedById])
   @@index([createdById])
   @@index([nextFollowUpAt])

@@ -29,9 +29,30 @@ function normalizedHeader(value: string) {
   return value.trim().toLowerCase().replace(/[^a-z0-9]/g, "");
 }
 
+function normalizeImportedPhone(value: string) {
+  const digits = value.replace(/\D/g, "");
+  // Excel removes a leading zero from numeric Ethiopian landline/mobile values.
+  return digits.length === 9 && /^[19]/.test(digits) ? `0${digits}` : value;
+}
+
+function normalizeImportedTin(value: string) {
+  // The reference export uses 10-digit TINs. Preserve this format when Excel
+  // has converted a zero-padded identifier into a number.
+  return /^\d{1,10}$/.test(value) ? value.padStart(10, "0") : value;
+}
+
+function parseImportedDate(value: string) {
+  if (!value) return null;
+  const serial = Number(value);
+  if (/^\d+(\.\d+)?$/.test(value) && serial >= 1 && serial <= 100_000) {
+    return new Date(Date.UTC(1899, 11, 30) + serial * 86_400_000);
+  }
+  return parseOptionalDate(value);
+}
+
 export function field(row: LeadImportRow, names: string[]) {
   const keys = names.map(normalizedHeader);
-  const found = Object.keys(row).find((key) => keys.includes(normalizedHeader(key)));
+  const found = Object.keys(row).find((key) => keys.includes(normalizedHeader(key)) && String(row[key] ?? "").trim());
   return found ? String(row[found] || "").trim() : "";
 }
 
@@ -40,7 +61,9 @@ export async function readLeadRows(file: Express.Multer.File): Promise<LeadImpor
   if (["xlsx", "xls"].includes(extension)) {
     const workbook = XLSX.readFile(file.path, { cellDates: true });
     const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-    const rows = XLSX.utils.sheet_to_json<LeadImportRow>(firstSheet, { defval: "" });
+    // Use displayed values so Excel-formatted identifiers (for example, zero-padded TINs)
+    // stay intact before the common CSV/XLSX lead mapper processes them.
+    const rows = XLSX.utils.sheet_to_json<LeadImportRow>(firstSheet, { defval: "", raw: false, dateNF: "yyyy-mm-dd" });
     if (rows.length > env.UPLOAD_MAX_ROWS) throw new Error(`Uploads are limited to ${env.UPLOAD_MAX_ROWS} rows`);
     return rows;
   }
@@ -66,27 +89,26 @@ export function buildLead(row: LeadImportRow, ownership: { createdById?: string 
   const managerLName = field(row, ["ManagerLName", "Manager Last Name"]);
   const managerName = [managerFName, managerMName, managerLName].filter(Boolean).join(" ");
   const fullName = field(row, ["full name", "fullname", "name", "contact name"]) || businessName || managerName;
-  const phoneNumber = field(row, ["phone number", "phone", "mobile", "manager phone", "business number", "Business Telephone"]);
+  const phoneNumber = normalizeImportedPhone(field(row, ["phone number", "phone", "mobile", "mobile number", "manager phone", "manager phone number", "manager mobile", "manager telephone", "business number", "Business Telephone", "telephone", "tel"]));
   if (!fullName || !phoneNumber) return null;
-  const licenceNumber = field(row, ["LicenceNumber", "License Number", "TIN"]);
-  const phaseRaw = field(row, ["phase", "status"]).toUpperCase().replace(/[-\s]/g, "_");
-
+  const licenceNumber = normalizeImportedTin(field(row, ["LicenceNumber", "License Number", "TIN"]));
   return {
     fullName,
     phoneNumber,
     phoneKey: phoneKey(phoneNumber),
     email: field(row, ["email", "email address"]),
-    phase: Object.values(LeadPhase).includes(phaseRaw as LeadPhase) ? (phaseRaw as LeadPhase) : LeadPhase.NEW,
+    // Imports always enter the queue as new leads, irrespective of source-system status values.
+    phase: LeadPhase.NEW,
     createdById: ownership.createdById || null,
-    appointmentDate: parseOptionalDate(field(row, ["appointment date", "appointmentdate", "appointment"])),
-    nextFollowUpAt: parseOptionalDate(field(row, ["follow up", "followup", "next follow up"])),
-    dateRegistered: parseOptionalDate(field(row, ["DateRegistered", "Date Registered"])),
+    appointmentDate: parseImportedDate(field(row, ["appointment date", "appointmentdate", "appointment"])),
+    nextFollowUpAt: parseImportedDate(field(row, ["follow up", "followup", "next follow up"])),
+    dateRegistered: parseImportedDate(field(row, ["DateRegistered", "Date Registered"])),
     legalStatusNameEng: field(row, ["LegalStatusNameEng", "Business Type"]) || null,
     legalStatusNameAmh: field(row, ["LegalStatusNameAmh"]) || null,
     status: field(row, ["Status"]) || null,
     licenceNumber: licenceNumber || null,
     licenceKey: licenceKey(licenceNumber),
-    renewedTo: parseOptionalDate(field(row, ["RenewedTo", "Renewed To"])),
+    renewedTo: parseImportedDate(field(row, ["RenewedTo", "Renewed To"])),
     siteId: field(row, ["SiteID"]) || null,
     businessName: businessName || null,
     businessNameAmharic: field(row, ["BusinessNameAmharic"]) || null,
@@ -113,34 +135,31 @@ export async function prepareLeadImport(client: DbClient, candidates: LeadImport
   const skipped: SkippedLeadRow[] = [];
   const valid: Array<LeadImportCandidate & { lead: Prisma.LeadCreateManyInput }> = [];
   const phoneKeys = new Set<string>();
-  const licenceKeys = new Set<string>();
 
   for (const candidate of candidates) {
     if (!candidate.lead) {
       skipped.push({ row: candidate.rowNumber, reason: "Missing business/name or phone" });
       continue;
     }
-    const duplicateInFile = phoneKeys.has(candidate.lead.phoneKey) || Boolean(candidate.lead.licenceKey && licenceKeys.has(candidate.lead.licenceKey));
+    const duplicateInFile = phoneKeys.has(candidate.lead.phoneKey);
     if (duplicateInFile) {
       skipped.push({ row: candidate.rowNumber, reason: "Duplicate inside uploaded file", lead: candidate.lead.fullName });
       continue;
     }
     phoneKeys.add(candidate.lead.phoneKey);
-    if (candidate.lead.licenceKey) licenceKeys.add(candidate.lead.licenceKey);
     valid.push(candidate as LeadImportCandidate & { lead: Prisma.LeadCreateManyInput });
   }
 
   const existing = valid.length
     ? await client.lead.findMany({
-        where: { OR: [{ phoneKey: { in: [...phoneKeys] } }, ...(licenceKeys.size ? [{ licenceKey: { in: [...licenceKeys] } }] : [])] },
-        select: { phoneKey: true, licenceKey: true }
+        where: { phoneKey: { in: [...phoneKeys] } },
+        select: { phoneKey: true }
       })
     : [];
   const existingPhones = new Set(existing.map((lead) => lead.phoneKey));
-  const existingLicences = new Set(existing.map((lead) => lead.licenceKey).filter(Boolean));
   const leads = valid.flatMap((candidate) => {
     const lead = candidate.lead;
-    if (existingPhones.has(lead.phoneKey) || Boolean(lead.licenceKey && existingLicences.has(lead.licenceKey))) {
+    if (existingPhones.has(lead.phoneKey)) {
       skipped.push({ row: candidate.rowNumber, reason: "Already exists in CRM", lead: lead.fullName });
       return [];
     }

@@ -1,5 +1,5 @@
-import { useEffect, useState, useMemo } from "react";
-import type { Lead } from "../../../types";
+import { useEffect, useState } from "react";
+import type { Lead, LeadPhase, Pagination } from "../../../types";
 import { salesApi } from "../api";
 import { useToast } from "../../../hooks/use-toast";
 import { getErrorMessage } from "../../../lib/utils/format";
@@ -7,14 +7,17 @@ import { getErrorMessage } from "../../../lib/utils/format";
 export function useLeadList(scope: "mine" | "all" = "all") {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [search, setSearch] = useState("");
+  const [phase, setPhase] = useState<LeadPhase | "ALL">("ALL");
+  const [pagination, setPagination] = useState<Pagination>({ page: 1, pageSize: 20, total: 0, totalPages: 0 });
   const [isLoading, setIsLoading] = useState(true);
   const { danger } = useToast();
 
   async function loadLeads() {
     try {
       setIsLoading(true);
-      const leadsData = await salesApi.getLeads(scope);
-      setLeads(leadsData);
+      const leadsData = await salesApi.getLeads({ scope, search, phase, page: pagination.page, pageSize: pagination.pageSize });
+      setLeads(leadsData.leads);
+      setPagination(leadsData.pagination);
     } catch (err: unknown) {
       danger(getErrorMessage(err, "Failed to load lead queue"));
     } finally {
@@ -24,31 +27,23 @@ export function useLeadList(scope: "mine" | "all" = "all") {
 
   useEffect(() => {
     loadLeads();
-  }, [scope]);
-
-  const filteredLeads = useMemo(() => {
-    const query = search.trim().toLowerCase();
-    if (!query) return leads;
-    return leads.filter((lead) => {
-      return [
-        lead.fullName,
-        lead.phoneNumber,
-        lead.email,
-        lead.businessName,
-        lead.licenceNumber,
-        lead.businessRegion,
-        lead.businessWoreda
-      ]
-        .filter(Boolean)
-        .some((val) => String(val).toLowerCase().includes(query));
-    });
-  }, [leads, search]);
+  }, [scope, search, phase, pagination.page, pagination.pageSize]);
 
   return {
-    leads: filteredLeads,
+    leads,
     todoCount: 0,
     search,
-    setSearch,
+    setSearch: (value: string) => {
+      setSearch(value);
+      setPagination((prev) => ({ ...prev, page: 1 }));
+    },
+    phase,
+    setPhase: (value: LeadPhase | "ALL") => {
+      setPhase(value);
+      setPagination((prev) => ({ ...prev, page: 1 }));
+    },
+    pagination,
+    setPage: (page: number) => setPagination((prev) => ({ ...prev, page })),
     isLoading,
     refresh: loadLeads
   };

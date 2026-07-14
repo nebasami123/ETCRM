@@ -148,6 +148,19 @@ export interface UploadResult {
   imported: number;
   skipped: number;
   skippedRows?: Array<{ row: number; reason: string; lead?: string }>;
+  skippedByReason?: Array<{ reason: string; count: number }>;
+}
+
+export interface Pagination {
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
+}
+
+export interface PaginatedLeads {
+  leads: Lead[];
+  pagination: Pagination;
 }
 
 export interface SalesDashboardData {

@@ -41,7 +41,6 @@ export function toDateTimeLocalValue(value: DateValue) {
 /** Safely extracts a human-readable message from an unknown catch-block error,
  *  including Axios-style `{ response: { data: { message } } }` errors. */
 export function getErrorMessage(err: unknown, fallback = "An error occurred"): string {
-  if (err instanceof Error) return err.message || fallback;
   if (typeof err === "object" && err !== null) {
     const e = err as Record<string, unknown>;
     const responseData = (e.response as Record<string, unknown> | undefined)?.data;
@@ -51,5 +50,6 @@ export function getErrorMessage(err: unknown, fallback = "An error occurred"): s
     }
     if (typeof e.message === "string" && e.message) return e.message;
   }
+  if (err instanceof Error) return err.message || fallback;
   return fallback;
 }

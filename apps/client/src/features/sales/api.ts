@@ -1,10 +1,10 @@
 import { api } from "../../api/client";
-import type { Lead, LeadPhase, LeaderboardEntry, Reminder, SalesDashboardData, SalesLeadForm, SalesTaskData, UploadResult } from "../../types";
+import type { Lead, LeadPhase, LeaderboardEntry, PaginatedLeads, Reminder, SalesDashboardData, SalesLeadForm, SalesTaskData, UploadResult } from "../../types";
 
 export const salesApi = {
   getDashboard: () => api.get<SalesDashboardData>("/sales/dashboard").then((res) => res.data),
   getLeaderboard: () => api.get<{ leaderboard: LeaderboardEntry[]; myStats: LeaderboardEntry | null }>("/sales/leaderboard").then((res) => res.data),
-  getLeads: (scope: "mine" | "all" = "all") => api.get<{ leads: Lead[] }>("/sales/leads", { params: { scope } }).then((res) => res.data.leads),
+  getLeads: (params: { scope: "mine" | "all"; search: string; phase: LeadPhase | "ALL"; page: number; pageSize: number }) => api.get<PaginatedLeads>("/sales/leads", { params }).then((res) => res.data),
   getTasks: (params: { range: string; start?: string; end?: string }) => api.get<SalesTaskData>("/sales/tasks", { params }).then((res) => res.data),
   createReminder: (payload: { label: string; note?: string; dueAt: string }) => api.post<{ reminder: Reminder }>("/sales/reminders", payload).then((res) => res.data.reminder),
   setReminderComplete: (id: string, complete: boolean) => api.patch(`/sales/reminders/${id}`, { complete }),

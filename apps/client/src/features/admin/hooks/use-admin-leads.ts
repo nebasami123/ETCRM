@@ -1,8 +1,9 @@
 import { useEffect, useState, useCallback } from "react";
-import type { Lead, LeadFilters, LeadPhase, UserSummary, LeadFormData } from "../../../types";
+import type { Lead, LeadFilters, LeadPhase, Pagination, UserSummary, LeadFormData } from "../../../types";
 import { adminApi } from "../api";
 import { useToast } from "../../../hooks/use-toast";
 import { getErrorMessage } from "../../../lib/utils/format";
+import { formatLeadImportSummary } from "../../../lib/utils/lead-import";
 
 const initialLeadFilters: LeadFilters = {
   search: "",
@@ -15,6 +16,7 @@ export function useAdminLeads() {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [salesUsers, setSalesUsers] = useState<UserSummary[]>([]);
   const [leadFilters, setLeadFilters] = useState<LeadFilters>(initialLeadFilters);
+  const [pagination, setPagination] = useState<Pagination>({ page: 1, pageSize: 20, total: 0, totalPages: 0 });
   const [isLoading, setIsLoading] = useState(true);
   const [isUploading, setIsUploading] = useState(false);
   const { success, danger } = useToast();
@@ -23,17 +25,18 @@ export function useAdminLeads() {
     try {
       setIsLoading(true);
       const [leadsData, usersData] = await Promise.all([
-        adminApi.getLeads(leadFilters),
+        adminApi.getLeads({ ...leadFilters, page: pagination.page, pageSize: pagination.pageSize }),
         adminApi.getSalesUsers()
       ]);
-      setLeads(leadsData);
+      setLeads(leadsData.leads);
+      setPagination(leadsData.pagination);
       setSalesUsers(usersData);
     } catch (err: unknown) {
       danger(getErrorMessage(err, "Failed to load leads"));
     } finally {
       setIsLoading(false);
     }
-  }, [leadFilters, danger]);
+  }, [leadFilters, pagination.page, pagination.pageSize, danger]);
 
   useEffect(() => {
     loadLeads();
@@ -44,6 +47,7 @@ export function useAdminLeads() {
       ...prev,
       [field]: field === "phase" ? (value as LeadPhase | "ALL") : value
     }));
+    setPagination((prev) => ({ ...prev, page: 1 }));
   };
 
   const assignLead = async (leadId: string, salesUserId: string | null) => {
@@ -113,11 +117,7 @@ export function useAdminLeads() {
     form.append("file", file);
     try {
       const data = await adminApi.uploadLeads(form);
-      const skippedText = data.skipped ? ` Skipped ${data.skipped}.` : "";
-      const reasonText = data.skippedRows?.length
-        ? ` First issue: row ${data.skippedRows[0].row} - ${data.skippedRows[0].reason}.`
-        : "";
-      success(`Imported ${data.imported} leads successfully.${skippedText}${reasonText}`);
+      success(formatLeadImportSummary(data), 8000);
       await loadLeads();
     } catch (err: unknown) {
       danger(getErrorMessage(err, "Could not upload leads"));
@@ -130,9 +130,11 @@ export function useAdminLeads() {
     leads,
     salesUsers,
     leadFilters,
+    pagination,
     isLoading,
     isUploading,
     updateLeadFilter,
+    setPage: (page: number) => setPagination((prev) => ({ ...prev, page })),
     assignLead,
     updateLeadPhase,
     createLead,
@@ -141,4 +143,3 @@ export function useAdminLeads() {
     refresh: loadLeads
   };
 };
-

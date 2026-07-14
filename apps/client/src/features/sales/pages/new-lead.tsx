@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useToast } from "../../../hooks/use-toast";
 import { salesApi } from "../api";
 import { getErrorMessage } from "../../../lib/utils/format";
+import { formatLeadImportSummary } from "../../../lib/utils/lead-import";
 import type { LeadFormData } from "../../../types";
 import { LeadForm } from "../../../components/forms/lead-form";
 import { FileDropzone } from "../../../components/ui/file-dropzone";
@@ -33,11 +34,7 @@ export function SalesNewLead() {
     form.append("file", file);
     try {
       const data = await salesApi.uploadLeads(form);
-      const skippedText = data.skipped ? ` Skipped ${data.skipped}.` : "";
-      const reasonText = data.skippedRows?.length
-        ? ` First issue: row ${data.skippedRows[0].row} - ${data.skippedRows[0].reason}.`
-        : "";
-      success(`Imported ${data.imported} leads and assigned them to you.${skippedText}${reasonText}`);
+      success(formatLeadImportSummary(data, true), 8000);
     } catch (err: unknown) {
       danger(getErrorMessage(err, "Could not upload leads"));
     } finally {
@@ -69,13 +66,7 @@ export function SalesNewLead() {
             description="Drag and drop or browse for lead contacts in CSV format. Uploaded leads will be assigned to you automatically."
             isUploading={isUploading}
             onFileChange={() => {}}
-            onUpload={async (e) => {
-              e.preventDefault();
-              const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
-              if (fileInput?.files?.[0]) {
-                await handleUploadLeads(fileInput.files[0]);
-              }
-            }}
+            onUpload={handleUploadLeads}
           />
         </div>
       </div>

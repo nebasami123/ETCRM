@@ -45,7 +45,7 @@ export function Toaster() {
             role="alert"
           >
             <Icon className={`h-5 w-5 shrink-0 ${iconColors[toast.type]}`} />
-            <div className="flex-1 text-sm font-medium">{toast.message}</div>
+            <div className="max-h-48 flex-1 overflow-y-auto whitespace-pre-line text-sm font-medium" data-scrollbar="thin">{toast.message}</div>
             <button
               onClick={() => toastStore.dismiss(toast.id)}
               className="rounded-md p-0.5 text-foreground/50 hover:bg-foreground/5 hover:text-foreground transition-colors"

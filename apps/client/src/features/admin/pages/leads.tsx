@@ -7,6 +7,7 @@ import { phaseOptions, formatDate, toDateTimeLocalValue } from "../../../lib/uti
 import type { Lead, LeadPhase } from "../../../types";
 import { Card } from "../../../components/ui/card";
 import { CustomSelect } from "../../../components/ui/custom-select";
+import { Pagination } from "../../../components/ui/pagination";
 
 const phaseColors: Record<LeadPhase, string> = {
   NEW: "bg-accent/10 border-accent/20 text-accent hover:bg-accent/15",
@@ -205,6 +206,7 @@ export function AdminLeads() {
             </tbody>
           </table>
         </div>
+        <Pagination pagination={leadsHook.pagination} onPageChange={leadsHook.setPage} />
       </Card>
 
       {/* Create Lead Modal */}
@@ -268,13 +270,9 @@ export function AdminLeads() {
               description="Drop your CSV or Excel lead list here. Real-estate custom columns are automatically preserved."
               isUploading={leadsHook.isUploading}
               onFileChange={() => {}}
-              onUpload={async (e) => {
-                e.preventDefault();
-                const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
-                if (fileInput?.files?.[0]) {
-                  await leadsHook.uploadLeads(fileInput.files[0]);
-                  setUploadModalOpen(false);
-                }
+              onUpload={async (file) => {
+                await leadsHook.uploadLeads(file);
+                setUploadModalOpen(false);
               }}
             />
           </div>

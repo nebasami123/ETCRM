@@ -7,7 +7,7 @@ interface FileDropzoneProps {
   description: string;
   isUploading: boolean;
   onFileChange: (file: File | null) => void;
-  onUpload: (e: React.FormEvent<HTMLFormElement>) => void;
+  onUpload: (file: File) => void | Promise<void>;
 }
 
 export function FileDropzone({
@@ -62,12 +62,17 @@ export function FileDropzone({
     inputRef.current?.click();
   };
 
+  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (selectedFile) void onUpload(selectedFile);
+  };
+
   return (
     <Card className="rounded-xl border border-separator bg-surface p-5 shadow-surface">
       <h3 className="text-sm font-bold text-foreground">{title}</h3>
       <p className="text-xs text-muted mt-1 leading-relaxed">{description}</p>
 
-      <form onSubmit={onUpload} className="mt-4">
+      <form onSubmit={handleSubmit} className="mt-4">
         <input
           ref={inputRef}
           type="file"

@@ -1,12 +1,12 @@
 import { api } from "../../api/client";
-import type { Activity, AdminLeadForm, AdminSummary, Lead, LeaderboardEntry, LeadFilters, LeadPhase, Quota, SalesUserForm, UploadResult, UserSummary } from "../../types";
+import type { Activity, AdminLeadForm, AdminSummary, LeaderboardEntry, LeadFilters, LeadPhase, PaginatedLeads, Quota, SalesUserForm, UploadResult, UserSummary } from "../../types";
 import type { ClaimRequest } from "./hooks/use-admin-transfers";
 
 export const adminApi = {
   getSummary: () => api.get<AdminSummary>("/admin/summary").then((res) => res.data),
   getLeaderboard: () => api.get<{ leaderboard: LeaderboardEntry[] }>("/admin/leaderboard").then((res) => res.data.leaderboard),
   getSalesUsers: () => api.get<{ users: UserSummary[] }>("/admin/sales-users").then((res) => res.data.users),
-  getLeads: (params: LeadFilters) => api.get<{ leads: Lead[] }>("/admin/leads", { params }).then((res) => res.data.leads),
+  getLeads: (params: LeadFilters & { page: number; pageSize: number }) => api.get<PaginatedLeads>("/admin/leads", { params }).then((res) => res.data),
   getQuotas: (params: { date: string }) => api.get<{ quotas: Quota[] }>("/admin/quotas", { params }).then((res) => res.data.quotas),
   getActivity: (params: { limit: number }) => api.get<{ activities: Activity[] }>("/admin/activity", { params }).then((res) => res.data.activities),
   saveQuota: (payload: { salesUserId: string; date: string; callsTarget: number; leadsTarget: number }) => api.post("/admin/quotas", payload).then((res) => res.data),
@@ -21,4 +21,3 @@ export const adminApi = {
   resolveTransferRequest: (requestId: string, approve: boolean) => api.post(`/admin/claim-transfer-requests/${requestId}/resolve`, { approve }).then((res) => res.data),
   downloadReport: () => api.get("/admin/reports/export", { responseType: "blob" })
 };
-

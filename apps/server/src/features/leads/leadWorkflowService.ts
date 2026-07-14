@@ -50,11 +50,22 @@ async function event(db: Db, input: Prisma.ActivityEventUncheckedCreateInput) {
   return db.activityEvent.create({ data: input });
 }
 
+function summarizeSkippedRows(skipped: SkippedLeadRow[]) {
+  const counts = new Map<string, number>();
+  for (const { reason } of skipped) counts.set(reason, (counts.get(reason) || 0) + 1);
+  return [...counts].map(([reason, count]) => ({ reason, count }));
+}
+
+export function importEmptyMessage(result: Pick<ImportResult, "skipped" | "skippedByReason">) {
+  const breakdown = result.skippedByReason.map(({ reason, count }) => `${count} ${reason}`).join("; ");
+  return `No new leads were imported. All ${result.skipped} rows were skipped: ${breakdown || "no valid rows"}.`;
+}
+
 export async function createLead({ input, actorId, claimActor = false }: { input: LeadInput; actorId: string; claimActor?: boolean }) {
   const data = leadData(input, actorId, claimActor);
   return prisma.$transaction(async (db) => {
     const duplicate = await db.lead.findFirst({
-      where: { OR: [{ phoneKey: data.phoneKey }, ...(data.licenceKey ? [{ licenceKey: data.licenceKey }] : [])] },
+      where: { phoneKey: data.phoneKey },
       select: { id: true, fullName: true, phoneNumber: true, licenceNumber: true }
     });
     if (duplicate) return { status: "duplicate" as const, duplicate };
@@ -72,11 +83,16 @@ export async function importLeads({ file, actorId, claimActor = false, source }:
     const candidates = rows.map((row, index) => ({ rowNumber: index + 2, lead: buildLead(row, { createdById: actorId }) }));
     return await prisma.$transaction(async (db) => {
       const { leads, skipped } = await prepareLeadImport(db, candidates);
-      if (!leads.length) return { status: "empty" as const, imported: 0, skipped: skipped.length, skippedRows: skipped.slice(0, 25) };
+      let skippedByReason = summarizeSkippedRows(skipped);
+      if (!leads.length) return { status: "empty" as const, imported: 0, skipped: skipped.length, skippedRows: skipped.slice(0, 25), skippedByReason };
       const now = new Date();
-      await db.lead.createMany({ data: leads.map((lead) => ({ ...lead, claimedById: claimActor ? actorId : null, claimedAt: claimActor ? now : null })) });
-      await event(db, { actorId, type: ActivityType.LEAD_IMPORTED, metadata: { source, imported: leads.length, skipped: skipped.length } });
-      return { status: "ok" as const, imported: leads.length, skipped: skipped.length, skippedRows: skipped.slice(0, 25) };
+      const inserted = await db.lead.createMany({ data: leads.map((lead) => ({ ...lead, claimedById: claimActor ? actorId : null, claimedAt: claimActor ? now : null })), skipDuplicates: true });
+      const writeConflicts = leads.length - inserted.count;
+      if (writeConflicts) skipped.push(...Array.from({ length: writeConflicts }, () => ({ row: 0, reason: "Already exists in CRM" })));
+      skippedByReason = summarizeSkippedRows(skipped);
+      if (!inserted.count) return { status: "empty" as const, imported: 0, skipped: skipped.length, skippedRows: skipped.slice(0, 25), skippedByReason };
+      await event(db, { actorId, type: ActivityType.LEAD_IMPORTED, metadata: { source, imported: inserted.count, skipped: skipped.length } });
+      return { status: "ok" as const, imported: inserted.count, skipped: skipped.length, skippedRows: skipped.slice(0, 25), skippedByReason };
     });
   } finally {
     await removeUpload(file);
@@ -181,10 +197,7 @@ export async function updateLead({ leadId, input, actorId }: { leadId: string; i
     const duplicate = await db.lead.findFirst({
       where: {
         id: { not: leadId },
-        OR: [
-          { phoneKey: pKey },
-          ...(lKey ? [{ licenceKey: lKey }] : [])
-        ]
+        phoneKey: pKey
       },
       select: { id: true, fullName: true, phoneNumber: true, licenceNumber: true }
     });
@@ -219,5 +232,4 @@ export async function updateLead({ leadId, input, actorId }: { leadId: string; i
   });
 }
 
-export type ImportResult = { status: "ok" | "empty"; imported: number; skipped: number; skippedRows: SkippedLeadRow[] };
-
+export type ImportResult = { status: "ok" | "empty"; imported: number; skipped: number; skippedRows: SkippedLeadRow[]; skippedByReason: Array<{ reason: string; count: number }> };
