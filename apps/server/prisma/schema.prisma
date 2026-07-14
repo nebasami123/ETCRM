@@ -58,6 +58,22 @@ model User {
   quotas                Quota[]
   claimRequests         ClaimTransferRequest[] @relation("RequestedClaimTransfers")
   resolvedClaimRequests ClaimTransferRequest[] @relation("ResolvedClaimTransfers")
+  reminders             Reminder[]
+}
+
+model Reminder {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  label       String
+  note        String?
+  dueAt       DateTime @db.Timestamptz(3)
+  completedAt DateTime? @db.Timestamptz(3)
+  createdAt   DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime @updatedAt @db.Timestamptz(3)
+
+  @@index([userId, dueAt])
+  @@index([userId, completedAt])
 }
 
 model Session {

@@ -1,435 +1,106 @@
-import { useState } from "react";
-import { Clock, FileText, UserCheck, ShieldAlert, ArrowLeft, Copy, Check, Milestone, Calendar, ArrowLeftRight, Save } from "lucide-react";
+import { useMemo, useState } from "react";
+import { Calendar, Check, ChevronRight, Clock3, Copy, Mail, Phone, Search, ShieldAlert, UserCheck, X } from "lucide-react";
 import { useLeadList } from "../hooks/use-lead-list";
 import { useLeadDetail } from "../hooks/use-lead-detail";
-import { useAuth } from "../../../hooks/use-auth";
 import { PhaseBadge } from "../../../components/ui/phase-badge";
 import { CustomSelect } from "../../../components/ui/custom-select";
 import { formatDateTime, phaseLabels } from "../../../lib/utils/format";
-import type { LeadPhase, Activity } from "../../../types";
+import type { Lead, LeadPhase } from "../../../types";
+import { useAuth } from "../../../hooks/use-auth";
 
-const getEventIcon = (type: string) => {
-  switch (type) {
-    case "CALL_NOTE":
-      return <FileText className="h-3.5 w-3.5 text-accent" />;
-    case "PHASE_CHANGED":
-      return <Milestone className="h-3.5 w-3.5 text-blue-500" />;
-    case "APPOINTMENT_SET":
-      return <Calendar className="h-3.5 w-3.5 text-success" />;
-    case "FOLLOW_UP_SET":
-      return <Clock className="h-3.5 w-3.5 text-warning" />;
-    case "LEAD_CREATED":
-      return <UserCheck className="h-3.5 w-3.5 text-accent" />;
-    case "LEAD_CLAIMED":
-      return <UserCheck className="h-3.5 w-3.5 text-success" />;
-    case "CLAIM_TRANSFER_REQUESTED":
-    case "CLAIM_TRANSFER_APPROVED":
-    case "CLAIM_TRANSFER_REJECTED":
-      return <ArrowLeftRight className="h-3.5 w-3.5 text-purple-500" />;
-    default:
-      return <FileText className="h-3.5 w-3.5 text-muted" />;
-  }
+type LeadScope = "mine" | "all";
+
+const phaseTone: Record<LeadPhase, string> = {
+  NEW: "bg-accent/10 text-accent",
+  CONTACTED: "bg-blue-500/10 text-blue-500",
+  FOLLOW_UP: "bg-warning/10 text-warning",
+  CLOSED_WON: "bg-success/10 text-success",
+  CLOSED_LOST: "bg-danger/10 text-danger"
 };
 
-interface ActivityMetadata {
-  value?: string;
-  imported?: number;
+function displayStage(lead: Pick<Lead, "phase" | "claimedBy">) {
+  if (lead.claimedBy && lead.phase === "NEW") return { label: "Claimed", tone: "bg-accent/10 text-accent" };
+  return { label: phaseLabels[lead.phase], tone: phaseTone[lead.phase] };
 }
 
-const getEventDetailText = (ev: Activity) => {
-  const meta = ev.metadata as ActivityMetadata | null | undefined;
-  switch (ev.type) {
-    case "CALL_NOTE":
-      return "Call Logged";
-    case "PHASE_CHANGED": {
-      const fromLabel = ev.fromPhase ? phaseLabels[ev.fromPhase as LeadPhase] || ev.fromPhase : "Unknown";
-      const toLabel = ev.toPhase ? phaseLabels[ev.toPhase as LeadPhase] || ev.toPhase : "Unknown";
-      return `Stage updated from ${fromLabel} to ${toLabel}`;
-    }
-    case "APPOINTMENT_SET": {
-      const apptVal = meta?.value;
-      return `Appointment set for ${apptVal ? formatDateTime(apptVal) : "None"}`;
-    }
-    case "FOLLOW_UP_SET": {
-      const followVal = meta?.value;
-      return `Follow-up target set for ${followVal ? formatDateTime(followVal) : "None"}`;
-    }
-    case "LEAD_CREATED":
-      return "Lead created in system";
-    case "LEAD_IMPORTED": {
-      const count = meta?.imported || 0;
-      return `Lead database imported (${count} records)`;
-    }
-    case "LEAD_CLAIMED":
-      return "Lead claimed by agent";
-    case "CLAIM_TRANSFER_REQUESTED":
-      return "Claim transfer requested";
-    case "CLAIM_TRANSFER_APPROVED":
-      return "Claim transfer approved";
-    case "CLAIM_TRANSFER_REJECTED":
-      return "Claim transfer rejected";
-    default:
-      return "Workflow action";
-  }
-};
+function ContactValue({ value, masked, kind }: { value?: string | null; masked: boolean; kind: "phone" | "email" }) {
+  if (!value) return <span className="text-muted">—</span>;
+  const Icon = kind === "phone" ? Phone : Mail;
+  return <span className={`inline-flex min-w-0 items-center gap-1.5 ${masked ? "blur-[1px] select-none text-muted" : "text-foreground"}`}><Icon className="h-3 w-3 shrink-0" /> <span className="truncate">{value}</span></span>;
+}
 
-
-export function SalesPipeline() {
+function LeadModal({ leadId, onClose }: { leadId: string; onClose: () => void }) {
   const { user } = useAuth();
-  const listHook = useLeadList();
-  const [selectedLeadId, setSelectedLeadId] = useState<string | null>(null);
-  
-  // Right panel detail hooks
-  const detailHook = useLeadDetail(selectedLeadId);
+  const detail = useLeadDetail(leadId);
+  const [copied, setCopied] = useState<string | null>(null);
+  const lead = detail.lead;
 
-  // Toggle detail panel view on mobile
-  const [mobileDetailVisible, setMobileDetailVisible] = useState(false);
-  const [copiedLabel, setCopiedLabel] = useState<string | null>(null);
-
-  const selectLead = (leadId: string) => {
-    setSelectedLeadId(leadId);
-    setMobileDetailVisible(true);
+  const copy = (label: string, value: string) => {
+    navigator.clipboard.writeText(value);
+    setCopied(label);
+    window.setTimeout(() => setCopied(null), 1200);
   };
 
-  const handleClaimTransfer = () => {
-    const reason = window.prompt("Explain to the Admin why ownership of this lead should be transferred to you:");
-    if (reason && reason.trim()) {
-      detailHook.requestTransfer(reason);
-    }
-  };
-
-  const isClaimedByOthers = detailHook.lead?.claimedBy && detailHook.lead.claimedBy.id !== user?.id;
-  const isClaimedByMe = detailHook.lead?.claimedBy && detailHook.lead.claimedBy.id === user?.id;
-
-  const handleCopy = (label: string, text: string) => {
-    navigator.clipboard.writeText(text);
-    setCopiedLabel(label);
-    setTimeout(() => setCopiedLabel(null), 1500);
-  };
-
-  const extraFields = detailHook.lead
-    ? [
-        ["Phone Number", detailHook.lead.phoneNumber],
-        ["Email Address", detailHook.lead.email],
-        ["Business Name", detailHook.lead.businessName],
-        ["Amharic Name", detailHook.lead.businessNameAmharic],
-        ["Legal Status", detailHook.lead.legalStatusNameEng],
-        ["License Number", detailHook.lead.licenceNumber],
-        ["Registered Date", detailHook.lead.dateRegistered],
-        ["Region", detailHook.lead.businessRegion],
-        ["Zone", detailHook.lead.businessZone],
-        ["Woreda", detailHook.lead.businessWoreda],
-        ["Kebele", detailHook.lead.businessKebele],
-        ["Manager", [detailHook.lead.managerFName, detailHook.lead.managerMName, detailHook.lead.managerLName].filter(Boolean).join(" ")],
-        ["English Description", detailHook.lead.englishDescription || detailHook.lead.subGroupEn]
-      ].filter((f): f is [string, string] => Boolean(f[1] && f[1] !== "None"))
-    : [];
+  if (!lead) return null;
+  const isMine = lead.claimedBy?.id === user?.id;
+  const isUnclaimed = !lead.claimedBy;
+  const masked = lead.contactMasked ?? false;
+  const stage = displayStage(lead);
+  const stageOptions = (Object.entries(phaseLabels) as Array<[LeadPhase, string]>).map(([value, label]) => ({ value, label: value === "NEW" && lead.claimedBy ? "Claimed" : label }));
+  const fields = [
+    ["Business", lead.businessName], ["License", lead.licenceNumber], ["Region", lead.businessRegion],
+    ["Zone", lead.businessZone], ["Woreda", lead.businessWoreda], ["Manager", [lead.managerFName, lead.managerMName, lead.managerLName].filter(Boolean).join(" ")]
+  ].filter(([, value]) => Boolean(value));
 
   return (
-    <div className="grid h-[calc(100vh-140px)] gap-6 lg:grid-cols-[360px_1fr] overflow-hidden">
-      
-      {/* Left List Pane */}
-      <div className={`flex flex-col h-full bg-surface border border-separator rounded-xl overflow-hidden shadow-surface ${mobileDetailVisible ? "hidden lg:flex" : "flex"}`}>
-        {/* Search */}
-        <div className="p-4 border-b border-separator bg-default/15 space-y-3">
-          <h3 className="text-xs font-bold text-foreground uppercase tracking-wider">My Leads Queue</h3>
-          <input
-            type="text"
-            placeholder="Filter by name, phone, license..."
-            value={listHook.search}
-            onChange={(e) => listHook.setSearch(e.target.value)}
-            className="w-full rounded-lg border border-field-border bg-field-background px-3 py-2 text-xs text-field-foreground placeholder:text-field-placeholder focus:border-accent focus:outline-none"
-          />
-        </div>
-
-        {/* Lead Scroll List */}
-        <div className="flex-1 overflow-y-auto divide-y divide-separator p-2" data-scrollbar="thin">
-          {listHook.isLoading ? (
-            <div className="text-center py-8 text-xs text-muted">Loading queue...</div>
-          ) : listHook.leads.length === 0 ? (
-            <div className="text-center py-8 text-xs text-muted">No leads matching filters.</div>
-          ) : (
-            listHook.leads.map((lead) => (
-              <button
-                key={lead.id}
-                onClick={() => selectLead(lead.id)}
-                className={`w-full text-left rounded-lg p-3 transition-all duration-300 ease-out-smooth cursor-pointer flex flex-col gap-1.5 focus:outline-none ${
-                  selectedLeadId === lead.id
-                    ? "bg-accent/10 border border-accent/20"
-                    : "hover:bg-default/40 border border-transparent"
-                }`}
-              >
-                <div className="flex items-start justify-between w-full">
-                  <span className="text-xs font-bold text-foreground truncate pr-2">
-                    {lead.fullName}
-                  </span>
-                  <PhaseBadge phase={lead.phase} />
-                </div>
-                <div className="flex items-center justify-between text-[10px] text-muted">
-                  <span className="font-mono">{lead.phoneNumber}</span>
-                  {lead.nextFollowUpAt && (
-                    <span className="flex items-center gap-1 text-warning font-semibold">
-                      <Clock className="h-3 w-3" />
-                      Follow-up
-                    </span>
-                  )}
-                </div>
-              </button>
-            ))
-          )}
-        </div>
-      </div>
-
-      {/* Right Detail Pane */}
-      <div className={`flex flex-col h-full bg-surface border border-separator rounded-xl overflow-hidden shadow-surface ${!mobileDetailVisible ? "hidden lg:flex" : "flex"}`}>
-        {selectedLeadId && detailHook.lead ? (
-          <>
-            {/* Header / Nav Top */}
-            <div className="flex items-center gap-3 px-4 py-3 border-b border-separator shrink-0 bg-default/15 justify-between">
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setMobileDetailVisible(false)}
-                  className="btn-interactive lg:hidden inline-flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-surface text-foreground"
-                  aria-label="Back to queue"
-                >
-                  <ArrowLeft className="h-4 w-4" />
-                </button>
-                <div>
-                  <h3 className="text-sm font-bold text-foreground">{detailHook.lead.fullName}</h3>
-                  <p className="text-[10px] text-muted font-mono">{detailHook.lead.phoneNumber}</p>
-                </div>
-              </div>
-              <PhaseBadge phase={detailHook.lead.phase} />
-            </div>
-
-            {/* Scrollable details */}
-            <div className="flex-1 overflow-y-auto p-5 space-y-6" data-scrollbar="thin">
-              {/* Claim Conflict Banners */}
-              {!detailHook.lead.claimedBy ? (
-                <div className="rounded-lg border border-accent/30 bg-accent/5 p-4 flex flex-col sm:flex-row items-center justify-between gap-3 animate-in fade-in duration-200">
-                  <div className="text-xs text-foreground/80 text-center sm:text-left">
-                    This lead is currently <strong className="font-bold">UNCLAIMED</strong>. Sales reps can claim ownership.
-                  </div>
-                  <button
-                    onClick={detailHook.claimLead}
-                    className="btn-interactive shrink-0 px-4 py-1.5 text-xs font-bold bg-accent text-accent-foreground rounded-lg hover:opacity-90"
-                  >
-                    Claim Lead
-                  </button>
-                </div>
-              ) : isClaimedByOthers ? (
-                <div className="rounded-lg border border-warning/30 bg-warning/5 p-4 flex flex-col sm:flex-row items-center justify-between gap-3 animate-in fade-in duration-200">
-                  <div className="text-xs text-warning text-center sm:text-left flex items-start gap-2">
-                    <ShieldAlert className="h-4.5 w-4.5 shrink-0 text-warning" />
-                    <span>
-                      Claimed by <strong className="font-bold">{detailHook.lead.claimedBy.name}</strong>. You can request a transfer.
-                    </span>
-                  </div>
-                  <button
-                    onClick={handleClaimTransfer}
-                    className="btn-interactive shrink-0 px-4 py-1.5 text-xs font-bold border border-warning/30 text-warning hover:bg-warning/10 rounded-lg"
-                  >
-                    Request Transfer
-                  </button>
-                </div>
-              ) : (
-                <div className="rounded-lg border border-success/30 bg-success/5 p-3 flex items-center gap-2 text-xs text-success font-semibold animate-in fade-in duration-200">
-                  <UserCheck className="h-4 w-4 shrink-0" />
-                  <span>You have claimed ownership of this lead</span>
-                </div>
-              )}
-
-              {/* Unified Actions Form Container */}
-              <div 
-                className="premium-card group rounded-xl border border-separator bg-linear-to-br from-surface to-surface/95 p-5 shadow-surface hover:shadow-lg transition-all duration-300 ease-out-smooth relative overflow-hidden"
-                style={{ "--card-glow": "var(--accent)" } as React.CSSProperties}
-              >
-                {/* Glow Background inside element */}
-                <div className="absolute -right-10 -bottom-10 w-24 h-24 rounded-full bg-accent/3 opacity-0 group-hover:opacity-100 blur-xl pointer-events-none transition-all duration-500 ease-out-smooth group-hover:scale-125" />
-
-                <div className="grid gap-6 md:grid-cols-2">
-                  {/* Stage Editor */}
-                  <div className="space-y-3">
-                    <h4 className="text-xs font-bold text-foreground uppercase tracking-wider flex items-center gap-1.5 select-none">
-                      <Milestone className="h-3.5 w-3.5 text-accent shrink-0" />
-                      Update Phase Stage
-                    </h4>
-                    <CustomSelect
-                      value={detailHook.phase}
-                      onChange={(val) => detailHook.setPhase(val as LeadPhase)}
-                      disabled={!isClaimedByMe || detailHook.phase === "CLOSED_WON"}
-                      options={[
-                        { value: "NEW", label: "New" },
-                        { value: "CONTACTED", label: "Contacted" },
-                        { value: "FOLLOW_UP", label: "Follow-Up" },
-                        { value: "CLOSED_LOST", label: "Closed-Lost" },
-                        ...(detailHook.phase === "CLOSED_WON" ? [{ value: "CLOSED_WON", label: "Closed-Won (Admin Lock)" }] : [])
-                      ]}
-                      className="w-full"
-                    />
-                    {detailHook.phase === "CLOSED_WON" && (
-                      <p className="text-[10px] text-muted italic">Only admins can select conversion credits to close leads as WON.</p>
-                    )}
-                  </div>
-
-                  {/* Appointment setting */}
-                  <div className="space-y-3">
-                    <h4 className="text-xs font-bold text-foreground uppercase tracking-wider flex items-center gap-1.5 select-none">
-                      <Calendar className="h-3.5 w-3.5 text-accent shrink-0" />
-                      Schedule Appointment
-                    </h4>
-                    <input
-                      type="datetime-local"
-                      value={detailHook.appointmentDate}
-                      onChange={(e) => detailHook.setAppointmentDate(e.target.value)}
-                      disabled={!isClaimedByMe || detailHook.saving}
-                      className="w-full rounded-lg border border-field-border bg-field-background px-3 py-1.5 text-xs text-field-foreground focus:border-accent focus:outline-none disabled:opacity-50 font-mono"
-                    />
-                  </div>
-
-                  {/* Follow up setting */}
-                  <div className="space-y-3">
-                    <h4 className="text-xs font-bold text-foreground uppercase tracking-wider flex items-center gap-1.5 select-none">
-                      <Clock className="h-3.5 w-3.5 text-accent shrink-0" />
-                      Next Follow-Up Target
-                    </h4>
-                    <input
-                      type="datetime-local"
-                      value={detailHook.followUpDate}
-                      onChange={(e) => detailHook.setFollowUpDate(e.target.value)}
-                      disabled={!isClaimedByMe || detailHook.saving}
-                      className="w-full rounded-lg border border-field-border bg-field-background px-3 py-1.5 text-xs text-field-foreground focus:border-accent focus:outline-none disabled:opacity-50 font-mono"
-                    />
-                  </div>
-
-                  {/* Call Notes Textarea */}
-                  <div className="space-y-3 md:col-span-2">
-                    <h4 className="text-xs font-bold text-foreground uppercase tracking-wider flex items-center gap-1.5 select-none">
-                      <FileText className="h-3.5 w-3.5 text-accent shrink-0" />
-                      Log Call Notes
-                    </h4>
-                    <textarea
-                      rows={4}
-                      value={detailHook.note}
-                      onChange={(e) => detailHook.setNote(e.target.value)}
-                      disabled={!isClaimedByMe || detailHook.saving}
-                      placeholder="Summarize discussion outcome, follow-up dates, or objections..."
-                      className="w-full rounded-lg border border-field-border bg-field-background px-3 py-2 text-xs text-field-foreground placeholder:text-field-placeholder focus:border-accent focus:outline-none resize-none disabled:opacity-50"
-                    />
-                  </div>
-                </div>
-
-                {/* Combined Save Button */}
-                <div className="flex justify-end mt-4 border-t border-separator pt-4">
-                  <button
-                    disabled={!isClaimedByMe || !detailHook.canSave || detailHook.saving}
-                    onClick={detailHook.saveAllChanges}
-                    className="btn-interactive flex items-center gap-1.5 px-4 py-2 text-xs font-bold bg-accent text-accent-foreground rounded-lg shadow-md hover:opacity-95 disabled:opacity-40 disabled:pointer-events-none cursor-pointer"
-                  >
-                    <Save className="h-3.5 w-3.5" />
-                    {detailHook.saving ? "Saving Changes..." : "Save All Changes"}
-                  </button>
-                </div>
-              </div>
-
-              {/* Extra business details (collapsible structure) */}
-              {extraFields.length > 0 && (
-                <div className="border-t border-separator pt-5">
-                  <h4 className="text-xs font-bold text-foreground uppercase tracking-wider mb-3">
-                    Lead Metadata Parameters
-                  </h4>
-                  <div className="grid gap-2 border border-separator rounded-xl p-4 bg-default/10 text-xs leading-relaxed">
-                    {extraFields.map(([lbl, val]) => {
-                      const isPhone = lbl === "Phone Number";
-                      const isEmail = lbl === "Email Address";
-                      const isCopied = copiedLabel === lbl;
-
-                      return (
-                        <div key={lbl} className="grid grid-cols-3 gap-2 py-1 items-center">
-                          <span className="text-muted font-bold">{lbl}</span>
-                          <div className="col-span-2 flex items-center justify-between gap-2 overflow-hidden">
-                            {isPhone ? (
-                              <a
-                                href={`tel:${val}`}
-                                className="text-accent hover:underline font-semibold truncate"
-                              >
-                                {val}
-                              </a>
-                            ) : isEmail ? (
-                              <a
-                                href={`mailto:${val}`}
-                                className="text-accent hover:underline font-semibold truncate"
-                              >
-                                {val}
-                              </a>
-                            ) : (
-                              <span className="text-foreground font-semibold truncate">
-                                {lbl.includes("Date") ? formatDateTime(val) : val}
-                              </span>
-                            )}
-                            {(isPhone || isEmail) && (
-                              <button
-                                type="button"
-                                onClick={() => handleCopy(lbl, val)}
-                                className="btn-interactive p-1 text-muted hover:text-foreground hover:bg-default/20 rounded-md shrink-0 transition-colors"
-                                title={`Copy ${lbl}`}
-                              >
-                                {isCopied ? (
-                                  <Check className="h-3.5 w-3.5 text-success animate-in fade-in zoom-in duration-100" />
-                                ) : (
-                                  <Copy className="h-3.5 w-3.5" />
-                                )}
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-
-              {/* Timeline History */}
-              <div className="border-t border-separator pt-5">
-                <h4 className="text-xs font-bold text-foreground uppercase tracking-wider mb-4">
-                  Lead Workflow Timeline History
-                </h4>
-                <div className="relative border-l border-separator pl-4 ml-3 space-y-4 py-1">
-                  {(detailHook.lead.events || []).map((ev) => (
-                    <div key={ev.id} className="relative text-xs leading-normal">
-                      <div className="absolute -left-7.5 top-0.5 h-7 w-7 flex items-center justify-center rounded-full bg-overlay border border-separator">
-                        {getEventIcon(ev.type)}
-                      </div>
-                      <div className="flex justify-between items-start gap-1">
-                        <span className="font-bold text-foreground">
-                          {getEventDetailText(ev)}
-                        </span>
-                        <span className="text-[10px] text-muted font-mono shrink-0">
-                          {formatDateTime(ev.createdAt)}
-                        </span>
-                      </div>
-                      {ev.actor && <p className="text-[10px] text-muted mt-0.5">by {ev.actor.name}</p>}
-                      {ev.note && (
-                        <p className="mt-1 text-muted border border-separator rounded-lg bg-default/20 p-2 italic">
-                          &ldquo;{ev.note}&rdquo;
-                        </p>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </>
-        ) : (
-          <div className="flex flex-col items-center justify-center h-full text-center p-6">
-            <h3 className="text-sm font-bold text-foreground">Lead Details Panel</h3>
-            <p className="text-xs text-muted max-w-60 mt-1 leading-relaxed">
-              Select a contact from the queue to start updating status phase and logging calls.
-            </p>
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-background/70 p-0 backdrop-blur-sm animate-in fade-in sm:items-center sm:p-6" role="dialog" aria-modal="true" aria-label="Lead details">
+      <div className="flex max-h-[92vh] w-full max-w-5xl flex-col overflow-hidden rounded-t-2xl border border-separator bg-surface shadow-overlay animate-in slide-in-from-bottom-4 sm:rounded-2xl">
+        <header className="flex items-start justify-between border-b border-separator bg-default/20 px-5 py-4 sm:px-7">
+          <div className="min-w-0">
+            <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-accent">Lead dossier</p>
+            <h2 className="mt-1 truncate text-xl font-black tracking-tight text-foreground">{lead.fullName}</h2>
+            <div className="mt-2 flex flex-wrap items-center gap-2">{lead.claimedBy && lead.phase === "NEW" ? <span className={`rounded-full px-2 py-1 text-[10px] font-bold ${stage.tone}`}>{stage.label}</span> : <PhaseBadge phase={lead.phase} />} {lead.claimedBy ? <span className="text-xs text-muted">Claimed by <strong className="text-foreground">{lead.claimedBy.name}</strong></span> : <span className="rounded-full bg-accent/10 px-2 py-0.5 text-[10px] font-bold text-accent">OPEN TO CLAIM</span>}</div>
           </div>
-        )}
+          <button onClick={onClose} className="btn-interactive rounded-lg border border-separator p-2 text-muted hover:bg-default hover:text-foreground" aria-label="Close lead"><X className="h-4 w-4" /></button>
+        </header>
+
+        <div className="grid flex-1 overflow-y-auto lg:grid-cols-[1.15fr_.85fr]" data-scrollbar="thin">
+          <section className="space-y-6 p-5 sm:p-7">
+            {isUnclaimed ? (
+              <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-accent/25 bg-accent/5 p-4"><div><p className="text-xs font-bold text-foreground">Ready to work</p><p className="mt-0.5 text-[11px] text-muted">Claim this lead to unlock the real contact details and manage its activity.</p></div><button onClick={detail.claimLead} className="btn-interactive inline-flex items-center gap-1.5 rounded-lg bg-accent px-3 py-2 text-xs font-bold text-accent-foreground"><UserCheck className="h-3.5 w-3.5" />Claim lead</button></div>
+            ) : !isMine ? <div className="flex gap-2 rounded-xl border border-warning/25 bg-warning/5 p-4 text-xs text-warning"><ShieldAlert className="h-4 w-4 shrink-0" />This lead is owned by another rep. Contact details stay available to the whole sales team.</div> : <div className="rounded-xl border border-success/25 bg-success/5 p-3 text-xs font-semibold text-success">You own this lead and can update its next actions below.</div>}
+
+            <div><h3 className="text-xs font-bold uppercase tracking-wider text-foreground">Contact</h3><div className="mt-3 grid gap-2 rounded-xl border border-separator bg-default/10 p-4 text-xs"><div className="flex items-center justify-between gap-3"><ContactValue value={lead.phoneNumber} masked={masked} kind="phone" /> {!masked && <button onClick={() => copy("phone", lead.phoneNumber)} className="text-muted hover:text-foreground">{copied === "phone" ? <Check className="h-4 w-4 text-success" /> : <Copy className="h-4 w-4" />}</button>}</div><div className="flex items-center justify-between gap-3"><ContactValue value={lead.email} masked={masked} kind="email" /> {!masked && lead.email && <button onClick={() => copy("email", lead.email!)} className="text-muted hover:text-foreground">{copied === "email" ? <Check className="h-4 w-4 text-success" /> : <Copy className="h-4 w-4" />}</button>}</div></div></div>
+            <div><h3 className="text-xs font-bold uppercase tracking-wider text-foreground">Business profile</h3><dl className="mt-3 grid grid-cols-2 gap-x-5 gap-y-3 rounded-xl border border-separator p-4 text-xs">{fields.length ? fields.map(([label, value]) => <div key={label}><dt className="text-[10px] font-bold uppercase tracking-wide text-muted">{label}</dt><dd className="mt-0.5 truncate font-semibold text-foreground">{value}</dd></div>) : <p className="col-span-2 text-muted">No additional business information was provided.</p>}</dl></div>
+          </section>
+          <aside className="space-y-5 border-t border-separator bg-default/10 p-5 lg:border-l lg:border-t-0 sm:p-7">
+            <div><h3 className="text-xs font-bold uppercase tracking-wider text-foreground">Next actions</h3><p className="mt-1 text-[11px] text-muted">Keep a clear handoff from this conversation to your planner.</p></div>
+            <label className="block text-xs font-bold text-foreground">Stage<CustomSelect value={detail.phase} onChange={(value) => detail.setPhase(value as LeadPhase)} options={stageOptions} disabled={!isMine} className="mt-2" ariaLabel="Lead stage" /></label>
+            <label className="block text-xs font-bold text-foreground">Appointment<input type="datetime-local" value={detail.appointmentDate} onChange={(event) => detail.setAppointmentDate(event.target.value)} disabled={!isMine} className="mt-2 w-full rounded-lg border border-field-border bg-field-background px-3 py-2 text-xs disabled:opacity-50" /></label>
+            <label className="block text-xs font-bold text-foreground">Follow-up<input type="datetime-local" value={detail.followUpDate} onChange={(event) => detail.setFollowUpDate(event.target.value)} disabled={!isMine} className="mt-2 w-full rounded-lg border border-field-border bg-field-background px-3 py-2 text-xs disabled:opacity-50" /></label>
+            <label className="block text-xs font-bold text-foreground">Call note<textarea value={detail.note} onChange={(event) => detail.setNote(event.target.value)} disabled={!isMine} rows={4} placeholder="Capture an outcome or next step…" className="mt-2 w-full resize-none rounded-lg border border-field-border bg-field-background px-3 py-2 text-xs disabled:opacity-50" /></label>
+            <button onClick={detail.saveAllChanges} disabled={!isMine || !detail.canSave} className="btn-interactive w-full rounded-lg bg-accent px-4 py-2.5 text-xs font-bold text-accent-foreground disabled:cursor-not-allowed disabled:opacity-40">{detail.saving ? "Saving…" : "Save lead activity"}</button>
+          </aside>
+        </div>
       </div>
     </div>
   );
 }
+
+export function SalesPipeline({ scope = "all" }: { scope?: LeadScope }) {
+  const list = useLeadList(scope);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [phase, setPhase] = useState<LeadPhase | "ALL">("ALL");
+  const visible = useMemo(() => phase === "ALL" ? list.leads : list.leads.filter((lead) => lead.phase === phase), [list.leads, phase]);
+  const title = scope === "mine" ? "My leads" : "Lead pool";
+  const description = scope === "mine" ? "Your owned opportunities, laid out for fast review and focused follow-through." : "The full sales inventory—claimed leads, team activity, and fresh opportunities to pick up.";
+
+  return <div className="space-y-5">
+    <div className="relative overflow-hidden rounded-2xl border border-separator bg-linear-to-r from-surface via-surface to-accent/5 px-5 py-6 sm:px-7"><div className="absolute -right-8 -top-12 h-40 w-40 rounded-full bg-accent/10 blur-3xl" /><p className="relative text-[10px] font-bold uppercase tracking-[0.2em] text-accent">Sales workspace</p><h1 className="relative mt-1 text-2xl font-black tracking-tight text-foreground">{title}</h1><p className="relative mt-1 max-w-2xl text-xs leading-relaxed text-muted">{description}</p></div>
+    <div className="flex flex-col gap-3 rounded-xl border border-separator bg-surface p-3 sm:flex-row sm:items-center"><div className="relative flex-1"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" /><input value={list.search} onChange={(event) => list.setSearch(event.target.value)} placeholder="Search name, business, license, or contact" className="w-full rounded-lg border border-field-border bg-field-background py-2 pl-9 pr-3 text-xs" /></div><div className="flex gap-2 overflow-x-auto">{(["ALL", "NEW", "CONTACTED", "FOLLOW_UP", "CLOSED_WON", "CLOSED_LOST"] as const).map((item) => <button key={item} onClick={() => setPhase(item)} className={`whitespace-nowrap rounded-lg px-3 py-2 text-[10px] font-bold ${phase === item ? "bg-foreground text-background" : "bg-default/50 text-muted hover:text-foreground"}`}>{item === "ALL" ? "All stages" : phaseLabels[item]}</button>)}</div></div>
+    <div className="overflow-hidden rounded-xl border border-separator bg-surface"><div className="hidden grid-cols-[minmax(180px,1.5fr)_minmax(150px,1fr)_130px_150px_36px] gap-4 border-b border-separator bg-default/15 px-5 py-3 text-[10px] font-bold uppercase tracking-wider text-muted md:grid"><span>Lead</span><span>Business</span><span>Stage</span><span>Next action</span><span /></div>{list.isLoading ? <div className="p-12 text-center text-xs text-muted">Loading leads…</div> : visible.length === 0 ? <div className="p-12 text-center text-xs text-muted">No leads match this view.</div> : visible.map((lead: Lead) => { const stage = displayStage(lead); return <button key={lead.id} onClick={() => setSelectedId(lead.id)} className="group grid w-full grid-cols-[1fr_auto] gap-3 border-b border-separator px-5 py-4 text-left transition-colors last:border-0 hover:bg-accent/4 md:grid-cols-[minmax(180px,1.5fr)_minmax(150px,1fr)_130px_150px_36px] md:items-center md:gap-4"><span className="min-w-0"><strong className="block truncate text-xs text-foreground">{lead.fullName}</strong><span className={`mt-1 block text-[10px] ${lead.contactMasked ? "blur-[1px] select-none" : "text-muted"}`}>{lead.phoneNumber}</span></span><span className="hidden truncate text-xs text-muted md:block">{lead.businessName || "—"}</span><span className={`hidden w-fit rounded-full px-2 py-1 text-[10px] font-bold md:block ${stage.tone}`}>{stage.label}</span><span className="hidden items-center gap-1.5 text-[11px] text-muted md:flex">{lead.appointmentDate ? <Calendar className="h-3.5 w-3.5 text-success" /> : <Clock3 className="h-3.5 w-3.5 text-warning" />}{formatDateTime(lead.appointmentDate || lead.nextFollowUpAt)}</span><ChevronRight className="h-4 w-4 text-muted transition-transform group-hover:translate-x-0.5" /></button>; })}</div>
+    {selectedId && <LeadModal leadId={selectedId} onClose={() => setSelectedId(null)} />}
+  </div>;
+}
+
 export default SalesPipeline;

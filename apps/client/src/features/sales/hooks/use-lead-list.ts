@@ -4,9 +4,8 @@ import { salesApi } from "../api";
 import { useToast } from "../../../hooks/use-toast";
 import { getErrorMessage } from "../../../lib/utils/format";
 
-export function useLeadList() {
+export function useLeadList(scope: "mine" | "all" = "all") {
   const [leads, setLeads] = useState<Lead[]>([]);
-  const [todoLeads, setTodoLeads] = useState<Lead[]>([]);
   const [search, setSearch] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const { danger } = useToast();
@@ -14,14 +13,8 @@ export function useLeadList() {
   async function loadLeads() {
     try {
       setIsLoading(true);
-      const [leadsData, dashboardData] = await Promise.all([
-        salesApi.getLeads(),
-        salesApi.getDashboard().catch(() => null)
-      ]);
+      const leadsData = await salesApi.getLeads(scope);
       setLeads(leadsData);
-      if (dashboardData) {
-        setTodoLeads(dashboardData.todoLeads);
-      }
     } catch (err: unknown) {
       danger(getErrorMessage(err, "Failed to load lead queue"));
     } finally {
@@ -31,16 +24,12 @@ export function useLeadList() {
 
   useEffect(() => {
     loadLeads();
-  }, []);
-
-  const activeList = useMemo(() => {
-    return todoLeads.length > 0 ? todoLeads : leads;
-  }, [todoLeads, leads]);
+  }, [scope]);
 
   const filteredLeads = useMemo(() => {
     const query = search.trim().toLowerCase();
-    if (!query) return activeList;
-    return activeList.filter((lead) => {
+    if (!query) return leads;
+    return leads.filter((lead) => {
       return [
         lead.fullName,
         lead.phoneNumber,
@@ -53,11 +42,11 @@ export function useLeadList() {
         .filter(Boolean)
         .some((val) => String(val).toLowerCase().includes(query));
     });
-  }, [activeList, search]);
+  }, [leads, search]);
 
   return {
     leads: filteredLeads,
-    todoCount: todoLeads.length,
+    todoCount: 0,
     search,
     setSearch,
     isLoading,

@@ -9,6 +9,8 @@ import {
   ChevronRight,
   Plus,
   Kanban,
+  ListTodo,
+  Layers3,
   X
 } from "lucide-react";
 import { useAuth } from "../../hooks/use-auth";
@@ -45,7 +47,9 @@ export function Sidebar({
 
   const salesNavItems = [
     { icon: LayoutDashboard, label: "Overview", to: "/sales" },
-    { icon: Kanban, label: "Pipeline", to: "/sales/pipeline" },
+    { icon: Kanban, label: "My Leads", to: "/sales/leads" },
+    { icon: Layers3, label: "Lead Pool", to: "/sales/lead-pool" },
+    { icon: ListTodo, label: "Planner", to: "/sales/planner" },
     { icon: Plus, label: "New Lead", to: "/sales/new" }
   ];
 

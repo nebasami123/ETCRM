@@ -3,7 +3,8 @@ import { leadInputSchema } from "@etcrm/contracts";
 import type { RequestHandler } from "express";
 import { z } from "zod";
 import { addSalesCallNote, claimSalesLead, createSalesLead, requestSalesClaimTransfer, updateSalesAppointment, updateSalesFollowUp, updateSalesLeadPhase, uploadSalesLeads } from "../features/sales/salesCommands.js";
-import { getSalesDashboard, getSalesLeaderboard as getSalesLeaderboardQuery, getSalesLead, listSalesLeads } from "../features/sales/salesQueries.js";
+import { getSalesDashboard, getSalesLeaderboard as getSalesLeaderboardQuery, getSalesLead, getSalesTasks, listSalesLeads } from "../features/sales/salesQueries.js";
+import { completeReminder, createReminder } from "../features/sales/reminderCommands.js";
 
 const phaseSchema = z.object({ phase: z.nativeEnum(LeadPhase) });
 const noteSchema = z.object({ note: z.string().trim().min(2).max(5000) });
@@ -11,10 +12,15 @@ const appointmentSchema = z.object({ appointmentDate: z.string().nullable().opti
 const followUpSchema = z.object({ nextFollowUpAt: z.string().nullable().optional() });
 const transferSchema = z.object({ reason: z.string().trim().min(3).max(1000) });
 const leadSchema = leadInputSchema;
+const reminderSchema = z.object({ label: z.string().trim().min(2).max(120), note: z.string().trim().max(1000).optional(), dueAt: z.string().datetime() });
+const reminderCompletionSchema = z.object({ complete: z.boolean() });
 
 export const dashboard: RequestHandler = async (req, res, next) => { try { res.json(await getSalesDashboard(req.user.id)); } catch (error) { next(error); } };
 export const getLeaderboard: RequestHandler = async (req, res, next) => { try { res.json(await getSalesLeaderboardQuery(req.user.id)); } catch (error) { next(error); } };
-export const listMyLeads: RequestHandler = async (req, res, next) => { try { res.json(await listSalesLeads({ search: String(req.query.search || ""), phase: String(req.query.phase || ""), page: Number(req.query.page || 1), pageSize: Number(req.query.pageSize || 50) })); } catch (error) { next(error); } };
+export const listMyLeads: RequestHandler = async (req, res, next) => { try { res.json(await listSalesLeads(req.user.id, { search: String(req.query.search || ""), phase: String(req.query.phase || ""), scope: String(req.query.scope || "all"), page: Number(req.query.page || 1), pageSize: Number(req.query.pageSize || 50) })); } catch (error) { next(error); } };
+export const getTasks: RequestHandler = async (req, res, next) => { try { res.json(await getSalesTasks(req.user.id, { range: String(req.query.range || "today"), start: typeof req.query.start === "string" ? req.query.start : undefined, end: typeof req.query.end === "string" ? req.query.end : undefined })); } catch (error) { next(error); } };
+export const addReminder: RequestHandler = async (req, res, next) => { try { res.status(201).json({ reminder: await createReminder({ userId: req.user.id, ...reminderSchema.parse(req.body) }) }); } catch (error) { next(error); } };
+export const setReminderComplete: RequestHandler = async (req, res, next) => { try { const updated = await completeReminder({ userId: req.user.id, reminderId: String(req.params.id), complete: reminderCompletionSchema.parse(req.body).complete }); if (!updated) return res.status(404).json({ message: "Reminder not found" }); res.status(204).end(); } catch (error) { next(error); } };
 export const getLead: RequestHandler = async (req, res, next) => { try { const lead = await getSalesLead(String(req.params.id)); if (!lead) return res.status(404).json({ message: "Lead not found" }); res.json({ lead }); } catch (error) { next(error); } };
 export const updateLeadPhase: RequestHandler = async (req, res, next) => { try { const phase = phaseSchema.parse(req.body).phase; if (phase === LeadPhase.CLOSED_WON) return res.status(403).json({ message: "An admin must close a lead as won and select conversion credit" }); const lead = await updateSalesLeadPhase({ leadId: String(req.params.id), userId: req.user.id, phase }); if (!lead) return res.status(404).json({ message: "Lead not found" }); res.json({ lead }); } catch (error) { next(error); } };
 export const addCallNote: RequestHandler = async (req, res, next) => { try { const lead = await addSalesCallNote({ leadId: String(req.params.id), userId: req.user.id, note: noteSchema.parse(req.body).note }); if (!lead) return res.status(404).json({ message: "Lead not found" }); res.status(201).json({ lead }); } catch (error) { next(error); } };

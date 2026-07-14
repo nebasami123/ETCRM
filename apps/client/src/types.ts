@@ -30,6 +30,8 @@ export interface Lead {
   fullName: string;
   phoneNumber: string;
   email?: string | null;
+  /** True when the sales API returned safe placeholder contact details. */
+  contactMasked?: boolean;
   phase: LeadPhase;
   claimedBy?: UserSummary | null;
   createdBy?: UserSummary | null;
@@ -160,6 +162,32 @@ export interface SalesDashboardData {
   };
   todoLeads: Lead[];
   phaseCounts: Array<{ phase: LeadPhase; _count: { phase: number } }>;
+  reminders: Reminder[];
+}
+
+export interface Reminder {
+  id: string;
+  label: string;
+  note?: string | null;
+  dueAt: DateValue;
+  completedAt?: DateValue;
+}
+
+export type SalesTaskKind = "REMINDER" | "APPOINTMENT" | "FOLLOW_UP";
+export interface SalesTask {
+  id: string;
+  kind: SalesTaskKind;
+  label: string;
+  note?: string | null;
+  dueAt: DateValue;
+  completedAt?: DateValue;
+  leadId?: string;
+  phase?: LeadPhase;
+}
+
+export interface SalesTaskData {
+  tasks: SalesTask[];
+  stats: { openTasks: number; callsCompleted: number; callsTarget: number; appointments: number; followUps: number; reminders: number };
 }
 
 export interface LeaderboardEntry {

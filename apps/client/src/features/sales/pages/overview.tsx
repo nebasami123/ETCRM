@@ -9,6 +9,9 @@ import { phaseLabels } from "../../../lib/utils/format";
 import type { LeadPhase } from "../../../types";
 import { Card } from "../../../components/ui/card";
 import { KPICard } from "../../../components/ui/kpi-card";
+import { Link } from "react-router-dom";
+import { BellRing, CalendarClock, ChevronRight } from "lucide-react";
+import { formatDateTime } from "../../../lib/utils/format";
 
 const phaseColors: Record<LeadPhase, string> = {
   NEW: "var(--accent)",
@@ -129,6 +132,14 @@ export function SalesOverview() {
             <CircularProgress value={leadsProcessed} target={leadsTarget} size={110} />
           </div>
         </Card>
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-[1.2fr_.8fr]">
+        <Card className="rounded-xl border border-separator bg-surface p-5 shadow-surface">
+          <div className="flex items-start justify-between gap-4"><div><p className="text-[10px] font-bold uppercase tracking-[0.16em] text-accent">Today&apos;s focus</p><h3 className="mt-1 text-sm font-bold text-foreground">Next commitments</h3></div><Link to="/sales/planner" className="inline-flex items-center gap-1 text-[11px] font-bold text-accent hover:underline">Open planner <ChevronRight className="h-3.5 w-3.5" /></Link></div>
+          <div className="mt-4 divide-y divide-separator">{dashboard?.reminders.length ? dashboard.reminders.map((reminder) => <div key={reminder.id} className="flex items-center gap-3 py-2.5"><span className="rounded-lg bg-accent/10 p-2 text-accent"><BellRing className="h-3.5 w-3.5" /></span><div className="min-w-0 flex-1"><p className="truncate text-xs font-bold text-foreground">{reminder.label}</p><p className="text-[10px] text-muted">{formatDateTime(reminder.dueAt)}</p></div></div>) : <p className="py-7 text-center text-xs text-muted">No personal reminders due today.</p>}</div>
+        </Card>
+        <Card className="rounded-xl border border-separator bg-linear-to-br from-success/8 to-surface p-5 shadow-surface"><CalendarClock className="h-5 w-5 text-success" /><p className="mt-5 text-2xl font-black text-foreground">{dashboard?.todoLeads.length ?? 0}</p><p className="mt-1 text-xs font-bold text-foreground">Lead actions due today</p><p className="mt-1 text-[11px] leading-relaxed text-muted">Appointments, follow-ups, and new leads are collected in your planner so nothing slips through.</p><Link to="/sales/planner" className="mt-4 inline-flex items-center gap-1 text-xs font-bold text-success hover:underline">Review schedule <ChevronRight className="h-3.5 w-3.5" /></Link></Card>
       </div>
 
       {/* Charts section */}

@@ -4,6 +4,9 @@ import {
   createLead,
   claimLead,
   dashboard,
+  getTasks,
+  addReminder,
+  setReminderComplete,
   getLead,
   getLeaderboard,
   listMyLeads,
@@ -20,6 +23,9 @@ export const salesRoutes = Router();
 
 salesRoutes.use(requireAuth, requireRole("SALES"));
 salesRoutes.get("/dashboard", dashboard);
+salesRoutes.get("/tasks", getTasks);
+salesRoutes.post("/reminders", addReminder);
+salesRoutes.patch("/reminders/:id", setReminderComplete);
 salesRoutes.get("/leaderboard", getLeaderboard);
 salesRoutes.get("/leads", listMyLeads);
 salesRoutes.post("/leads", createLead);
