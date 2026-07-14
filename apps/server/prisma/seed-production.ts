@@ -32,6 +32,11 @@ async function main() {
   });
   console.log(`Production admin ready: ${prodAdmin.email}`);
 
+  if (process.env.SEED_ADMIN_ONLY) {
+    console.log("SEED_ADMIN_ONLY set — skipping demo data.");
+    return;
+  }
+
   console.log("Seeding Ethiopian mock users...");
   const admin = await createUser({
     name: "Yohannes Tekle",
