@@ -23,6 +23,10 @@ export async function listAdminSalesUsers() {
   return prisma.user.findMany({ where: salesOnly, select: { id: true, name: true, email: true, role: true }, orderBy: { name: "asc" } });
 }
 
+export async function listAllAdminUsers() {
+  return prisma.user.findMany({ select: { id: true, name: true, email: true, role: true }, orderBy: { name: "asc" } });
+}
+
 export async function listAdminLeads(filters: { search?: string; phase?: string; claimedById?: string; createdById?: string; page?: number; pageSize?: number }) {
   const search = filters.search?.trim();
   const phase = filters.phase?.trim();

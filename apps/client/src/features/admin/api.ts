@@ -1,11 +1,12 @@
 import { api } from "../../api/client";
-import type { Activity, AdminLeadForm, AdminSummary, LeaderboardEntry, LeadFilters, LeadPhase, PaginatedLeads, Quota, SalesUserForm, UploadResult, UserSummary } from "../../types";
+import type { Activity, AdminLeadForm, AdminSummary, LeaderboardEntry, LeadFilters, LeadPhase, PaginatedLeads, Quota, SalesUserForm, UploadResult, UserSummary, AgentPerformanceMetrics } from "../../types";
 import type { ClaimRequest } from "./hooks/use-admin-transfers";
 
 export const adminApi = {
   getSummary: () => api.get<AdminSummary>("/admin/summary").then((res) => res.data),
   getLeaderboard: () => api.get<{ leaderboard: LeaderboardEntry[] }>("/admin/leaderboard").then((res) => res.data.leaderboard),
   getSalesUsers: () => api.get<{ users: UserSummary[] }>("/admin/sales-users").then((res) => res.data.users),
+  getAllUsers: () => api.get<{ users: UserSummary[] }>("/admin/users").then((res) => res.data.users),
   getLeads: (params: LeadFilters & { page: number; pageSize: number }) => api.get<PaginatedLeads>("/admin/leads", { params }).then((res) => res.data),
   getQuotas: (params: { date: string }) => api.get<{ quotas: Quota[] }>("/admin/quotas", { params }).then((res) => res.data.quotas),
   getActivity: (params: { limit: number }) => api.get<{ activities: Activity[] }>("/admin/activity", { params }).then((res) => res.data.activities),
@@ -19,5 +20,6 @@ export const adminApi = {
   updateLeadPhase: (leadId: string, phase: LeadPhase, creditedUserId?: string) => api.patch(`/admin/leads/${leadId}/phase`, { phase, creditedUserId: creditedUserId || null }).then((res) => res.data),
   getTransferRequests: (status?: string) => api.get<{ requests: ClaimRequest[] }>("/admin/claim-transfer-requests", { params: { status } }).then((res) => res.data.requests),
   resolveTransferRequest: (requestId: string, approve: boolean) => api.post(`/admin/claim-transfer-requests/${requestId}/resolve`, { approve }).then((res) => res.data),
-  downloadReport: () => api.get("/admin/reports/export", { responseType: "blob" })
+  downloadReport: () => api.get("/admin/reports/export", { responseType: "blob" }),
+  getPerformanceMetrics: (params: { from: string; to: string }) => api.get<{ metrics: AgentPerformanceMetrics[] }>("/admin/performance-metrics", { params }).then((res) => res.data.metrics)
 };

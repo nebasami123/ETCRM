@@ -216,3 +216,16 @@ export interface LeaderboardEntry {
 
 export type SubmitHandler = (event: FormEvent<HTMLFormElement>) => void | Promise<void>;
 export type ChildrenProps = { children: ReactNode };
+
+export interface AgentPerformanceMetrics {
+  agent: string;
+  email: string;
+  claimedLeads: number;
+  createdLeads: number;
+  callNotes: number;
+  activities: number;
+  conversionsCredited: number;
+  quotaDays: number;
+  totalCallTarget: number;
+  totalLeadTarget: number;
+}

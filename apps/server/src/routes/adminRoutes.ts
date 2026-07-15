@@ -10,13 +10,15 @@ import {
   listLeads,
   listQuotas,
   listSalesUsers,
+  listAllUsers,
   listTransferRequests,
   resolveTransferRequest,
   resetSalesUserPassword,
   updateAdminLeadPhase,
   uploadLeads,
   upsertQuota,
-  updateLead
+  updateLead,
+  getPerformanceMetrics
 } from "../controllers/adminController.js";
 import { requireAuth, requireRole } from "../middleware/auth.js";
 import { leadUpload } from "../middleware/upload.js";
@@ -27,6 +29,7 @@ adminRoutes.use(requireAuth, requireRole("ADMIN"));
 adminRoutes.get("/summary", adminSummary);
 adminRoutes.get("/leaderboard", getLeaderboard);
 adminRoutes.get("/sales-users", listSalesUsers);
+adminRoutes.get("/users", listAllUsers);
 adminRoutes.post("/sales-users", createSalesUser);
 adminRoutes.post("/sales-users/:id/password", resetSalesUserPassword);
 adminRoutes.get("/activity", listActivity);
@@ -41,3 +44,4 @@ adminRoutes.post("/claim-transfer-requests/:id/resolve", resolveTransferRequest)
 adminRoutes.get("/quotas", listQuotas);
 adminRoutes.post("/quotas", upsertQuota);
 adminRoutes.get("/reports/export", exportReport);
+adminRoutes.get("/performance-metrics", getPerformanceMetrics);

@@ -11,6 +11,7 @@ import {
   Kanban,
   ListTodo,
   Layers3,
+  TrendingUp,
   X
 } from "lucide-react";
 import { useAuth } from "../../hooks/use-auth";
@@ -41,6 +42,7 @@ export function Sidebar({
     { icon: Users, label: "Leads", to: "/admin/leads" },
     { icon: UserCog, label: "Team", to: "/admin/team" },
     { icon: Target, label: "Quotas", to: "/admin/quotas" },
+    { icon: TrendingUp, label: "Performance", to: "/admin/performance" },
     { icon: FileBarChart, label: "Reports & Activity", to: "/admin/reports" },
     { icon: ArrowLeftRight, label: "Transfer Requests", to: "/admin/transfers" }
   ];

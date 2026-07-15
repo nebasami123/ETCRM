@@ -13,7 +13,7 @@ export function useAdminTeam() {
   async function loadTeam() {
     try {
       setIsLoading(true);
-      const users = await adminApi.getSalesUsers();
+      const users = await adminApi.getAllUsers();
       setTeam(users);
     } catch (err: unknown) {
       danger(getErrorMessage(err, "Failed to load team users"));

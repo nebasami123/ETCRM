@@ -5,7 +5,7 @@ import type { RequestHandler } from "express";
 import { z } from "zod";
 import { fromNodeHeaders } from "better-auth/node";
 import { assignAdminLead, createAdminLead, createAdminSalesUser, resetAdminSalesPassword, uploadAdminLeads, upsertAdminQuota, updateAdminLead } from "../features/admin/adminCommands.js";
-import { getAdminReportRows, getAdminSummary, getLeaderboard as getLeaderboardQuery, listAdminActivity, listAdminLeads, listAdminQuotas, listAdminSalesUsers, listClaimTransferRequests } from "../features/admin/adminQueries.js";
+import { getAdminReportRows, getAdminSummary, getLeaderboard as getLeaderboardQuery, listAdminActivity, listAdminLeads, listAdminQuotas, listAdminSalesUsers, listAllAdminUsers, listClaimTransferRequests } from "../features/admin/adminQueries.js";
 import { importEmptyMessage, resolveClaimTransfer, updateLeadPhase } from "../features/leads/leadWorkflowService.js";
 
 const quotaSchema = z.object({ salesUserId: z.string(), date: z.string(), callsTarget: z.coerce.number().int().min(0), leadsTarget: z.coerce.number().int().min(0) });
@@ -19,6 +19,7 @@ const transferResolutionSchema = z.object({ approve: z.boolean() });
 export const adminSummary: RequestHandler = async (_req, res, next) => { try { res.json(await getAdminSummary()); } catch (error) { next(error); } };
 export const getLeaderboard: RequestHandler = async (_req, res, next) => { try { res.json({ leaderboard: await getLeaderboardQuery() }); } catch (error) { next(error); } };
 export const listSalesUsers: RequestHandler = async (_req, res, next) => { try { res.json({ users: await listAdminSalesUsers() }); } catch (error) { next(error); } };
+export const listAllUsers: RequestHandler = async (_req, res, next) => { try { res.json({ users: await listAllAdminUsers() }); } catch (error) { next(error); } };
 export const createSalesUser: RequestHandler = async (req, res, next) => { try { const result = await createAdminSalesUser(salesUserSchema.parse(req.body)); if (result.status === "duplicate") return res.status(409).json({ message: "A user with this email already exists" }); res.status(201).json({ user: result.user }); } catch (error) { next(error); } };
 export const resetSalesUserPassword: RequestHandler = async (req, res, next) => { try { const reset = await resetAdminSalesPassword({ userId: String(req.params.id), newPassword: passwordResetSchema.parse(req.body).newPassword, headers: fromNodeHeaders(req.headers) }); if (!reset) return res.status(404).json({ message: "Sales user not found" }); res.status(204).end(); } catch (error) { next(error); } };
 export const listLeads: RequestHandler = async (req, res, next) => { try { res.json(await listAdminLeads({ search: String(req.query.search || ""), phase: String(req.query.phase || ""), claimedById: String(req.query.claimedById || ""), createdById: String(req.query.createdById || ""), page: Number(req.query.page || 1), pageSize: Number(req.query.pageSize || 50) })); } catch (error) { next(error); } };
@@ -34,3 +35,4 @@ export const resolveTransferRequest: RequestHandler = async (req, res, next) => 
 export const upsertQuota: RequestHandler = async (req, res, next) => { try { res.json({ quota: await upsertAdminQuota(quotaSchema.parse(req.body)) }); } catch (error) { next(error); } };
 export const listQuotas: RequestHandler = async (req, res, next) => { try { res.json({ quotas: await listAdminQuotas(req.query.date) }); } catch (error) { next(error); } };
 export const exportReport: RequestHandler = async (req, res, next) => { try { const csvOutput = new Parser().parse(await getAdminReportRows({ fromInput: req.query.from, toInput: req.query.to })); res.header("Content-Type", "text/csv"); res.attachment(`agent-performance-${Date.now()}.csv`); res.send(csvOutput); } catch (error) { next(error); } };
+export const getPerformanceMetrics: RequestHandler = async (req, res, next) => { try { const metrics = await getAdminReportRows({ fromInput: req.query.from, toInput: req.query.to }); res.json({ metrics }); } catch (error) { next(error); } };

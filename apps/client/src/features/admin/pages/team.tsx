@@ -68,22 +68,22 @@ export function AdminTeam() {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h2 className="text-xl font-bold tracking-tight text-foreground">Team Management</h2>
-        <p className="text-xs text-muted mt-1">Manage sales representatives, reset credentials, and audit activity.</p>
+        <h2 className="text-xl font-bold tracking-tight text-foreground">User & Team Management</h2>
+        <p className="text-xs text-muted mt-1">Manage registered users, reset credentials, and audit activity.</p>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3">
         {/* Sales Users List */}
         <Card className="rounded-xl border border-separator bg-surface shadow-surface overflow-hidden lg:col-span-2">
           <div className="p-4 border-b border-separator bg-default/10">
-            <h3 className="text-xs font-bold text-foreground uppercase tracking-wider">Active Sales Representatives</h3>
+            <h3 className="text-xs font-bold text-foreground uppercase tracking-wider">All Registered Users</h3>
           </div>
           <div className="overflow-x-auto" data-scrollbar="thin">
             <table className="w-full text-left text-xs border-collapse">
               <thead>
                 <tr className="border-b border-separator bg-default/20 text-muted font-bold uppercase tracking-wider text-[10px]">
-                  <th className="px-5 py-3">Agent</th>
-                  <th className="px-5 py-3 text-center">Assigned Leads</th>
+                  <th className="px-5 py-3">User</th>
+                  <th className="px-5 py-3 text-center">Role</th>
                   <th className="px-5 py-3 text-center">Actions</th>
                 </tr>
               </thead>
@@ -112,9 +112,8 @@ export function AdminTeam() {
                           <p className="text-[10px] text-muted">{member.email}</p>
                         </div>
                       </td>
-                      <td className="px-5 py-3.5 text-center text-xs font-mono font-bold text-accent">
-                        {/* We will just display a checkmark or dashboard indicators. The hook yields user lists. */}
-                        Active
+                      <td className="px-5 py-3.5 text-center text-xs font-mono font-bold text-accent uppercase">
+                        {member.role || "SALES"}
                       </td>
                       <td className="px-5 py-3.5 text-center">
                         <button
