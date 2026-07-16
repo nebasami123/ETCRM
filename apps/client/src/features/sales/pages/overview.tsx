@@ -10,8 +10,10 @@ import type { LeadPhase } from "../../../types";
 import { Card } from "../../../components/ui/card";
 import { KPICard } from "../../../components/ui/kpi-card";
 import { Link } from "react-router-dom";
-import { BellRing, CalendarClock, ChevronRight } from "lucide-react";
+import { BellRing, CalendarClock, ChevronRight, AlertTriangle } from "lucide-react";
 import { formatDateTime } from "../../../lib/utils/format";
+import { useState } from "react";
+import { LeadModal } from "./pipeline";
 
 const phaseColors: Record<LeadPhase, string> = {
   NEW: "var(--accent)",
@@ -24,6 +26,7 @@ const phaseColors: Record<LeadPhase, string> = {
 export function SalesOverview() {
   const { dashboard, isLoading } = useSalesOverview();
   const { leaderboard, myStats, isLoading: leaderboardLoading } = useSalesLeaderboard();
+  const [openLeadId, setOpenLeadId] = useState<string | null>(null);
 
   if (isLoading || leaderboardLoading) {
     return (
@@ -134,6 +137,35 @@ export function SalesOverview() {
         </Card>
       </div>
 
+      {(dashboard?.overdueCount ?? 0) > 0 && (
+        <Card className="rounded-xl border border-danger/30 bg-danger/5 p-4 shadow-surface">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="flex gap-2">
+              <AlertTriangle className="h-4 w-4 shrink-0 text-danger" />
+              <div>
+                <p className="text-xs font-bold text-danger">{dashboard?.overdueCount} overdue follow-up{dashboard?.overdueCount === 1 ? "" : "s"}</p>
+                <p className="mt-0.5 text-[11px] text-muted">Past-due on leads you claim — open one to reschedule or log a call.</p>
+              </div>
+            </div>
+            <Link to="/sales/leads" className="text-[11px] font-bold text-danger hover:underline">
+              View my leads
+            </Link>
+          </div>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {(dashboard?.overdueFollowUps ?? []).slice(0, 5).map((lead) => (
+              <button
+                key={lead.id}
+                onClick={() => setOpenLeadId(lead.id)}
+                className="btn-interactive rounded-lg border border-danger/20 bg-surface px-2.5 py-1.5 text-[11px] font-semibold text-foreground hover:border-danger/40"
+              >
+                {lead.fullName}
+                <span className="ml-1.5 text-[10px] font-normal text-muted">{formatDateTime(lead.nextFollowUpAt)}</span>
+              </button>
+            ))}
+          </div>
+        </Card>
+      )}
+
       <div className="grid gap-6 lg:grid-cols-[1.2fr_.8fr]">
         <Card className="rounded-xl border border-separator bg-surface p-5 shadow-surface">
           <div className="flex items-start justify-between gap-4"><div><p className="text-[10px] font-bold uppercase tracking-[0.16em] text-accent">Today&apos;s focus</p><h3 className="mt-1 text-sm font-bold text-foreground">Next commitments</h3></div><Link to="/sales/planner" className="inline-flex items-center gap-1 text-[11px] font-bold text-accent hover:underline">Open planner <ChevronRight className="h-3.5 w-3.5" /></Link></div>
@@ -141,6 +173,8 @@ export function SalesOverview() {
         </Card>
         <Card className="rounded-xl border border-separator bg-linear-to-br from-success/8 to-surface p-5 shadow-surface"><CalendarClock className="h-5 w-5 text-success" /><p className="mt-5 text-2xl font-black text-foreground">{dashboard?.todoLeads.length ?? 0}</p><p className="mt-1 text-xs font-bold text-foreground">Lead actions due today</p><p className="mt-1 text-[11px] leading-relaxed text-muted">Appointments, follow-ups, and new leads are collected in your planner so nothing slips through.</p><Link to="/sales/planner" className="mt-4 inline-flex items-center gap-1 text-xs font-bold text-success hover:underline">Review schedule <ChevronRight className="h-3.5 w-3.5" /></Link></Card>
       </div>
+
+      {openLeadId && <LeadModal leadId={openLeadId} onClose={() => setOpenLeadId(null)} />}
 
       {/* Charts section */}
       <div className="grid gap-6 lg:grid-cols-3">

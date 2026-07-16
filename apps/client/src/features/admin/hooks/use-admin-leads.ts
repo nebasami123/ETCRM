@@ -4,6 +4,7 @@ import { adminApi } from "../api";
 import { useToast } from "../../../hooks/use-toast";
 import { getErrorMessage } from "../../../lib/utils/format";
 import { formatLeadImportSummary } from "../../../lib/utils/lead-import";
+import { useDebouncedValue } from "../../../hooks/use-debounced-value";
 
 const initialLeadFilters: LeadFilters = {
   search: "",
@@ -16,27 +17,42 @@ export function useAdminLeads() {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [salesUsers, setSalesUsers] = useState<UserSummary[]>([]);
   const [leadFilters, setLeadFilters] = useState<LeadFilters>(initialLeadFilters);
+  const debouncedSearch = useDebouncedValue(leadFilters.search, 300);
   const [pagination, setPagination] = useState<Pagination>({ page: 1, pageSize: 20, total: 0, totalPages: 0 });
   const [isLoading, setIsLoading] = useState(true);
   const [isUploading, setIsUploading] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const { success, danger } = useToast();
+
+  // Depend on debouncedSearch only — not leadFilters.search — so typing does not refetch every keystroke.
+  const { phase, claimedById, createdById } = leadFilters;
+  const page = pagination.page;
+  const pageSize = pagination.pageSize;
 
   const loadLeads = useCallback(async () => {
     try {
       setIsLoading(true);
       const [leadsData, usersData] = await Promise.all([
-        adminApi.getLeads({ ...leadFilters, page: pagination.page, pageSize: pagination.pageSize }),
+        adminApi.getLeads({
+          search: debouncedSearch,
+          phase,
+          claimedById,
+          createdById,
+          page,
+          pageSize
+        }),
         adminApi.getSalesUsers()
       ]);
       setLeads(leadsData.leads);
       setPagination(leadsData.pagination);
       setSalesUsers(usersData);
+      setSelectedIds((prev) => prev.filter((id) => leadsData.leads.some((lead) => lead.id === id)));
     } catch (err: unknown) {
       danger(getErrorMessage(err, "Failed to load leads"));
     } finally {
       setIsLoading(false);
     }
-  }, [leadFilters, pagination.page, pagination.pageSize, danger]);
+  }, [debouncedSearch, phase, claimedById, createdById, page, pageSize, danger]);
 
   useEffect(() => {
     loadLeads();
@@ -50,6 +66,14 @@ export function useAdminLeads() {
     setPagination((prev) => ({ ...prev, page: 1 }));
   };
 
+  const toggleSelect = (leadId: string) => {
+    setSelectedIds((prev) => (prev.includes(leadId) ? prev.filter((id) => id !== leadId) : [...prev, leadId]));
+  };
+
+  const toggleSelectAll = () => {
+    setSelectedIds((prev) => (prev.length === leads.length ? [] : leads.map((lead) => lead.id)));
+  };
+
   const assignLead = async (leadId: string, salesUserId: string | null) => {
     try {
       await adminApi.assignLead(leadId, salesUserId);
@@ -57,6 +81,30 @@ export function useAdminLeads() {
       await loadLeads();
     } catch (err: unknown) {
       danger(getErrorMessage(err, "Could not assign lead"));
+    }
+  };
+
+  const bulkAssign = async (salesUserId: string | null) => {
+    if (!selectedIds.length) return;
+    try {
+      const result = await adminApi.bulkAssignLeads(selectedIds, salesUserId);
+      success(`Updated assignment on ${result.updated} lead(s)`);
+      setSelectedIds([]);
+      await loadLeads();
+    } catch (err: unknown) {
+      danger(getErrorMessage(err, "Could not bulk-assign leads"));
+    }
+  };
+
+  const bulkPhase = async (phase: LeadPhase, creditedUserId?: string) => {
+    if (!selectedIds.length) return;
+    try {
+      const result = await adminApi.bulkUpdatePhases(selectedIds, phase, creditedUserId);
+      success(`Updated phase on ${result.updated} lead(s)`);
+      setSelectedIds([]);
+      await loadLeads();
+    } catch (err: unknown) {
+      danger(getErrorMessage(err, "Could not bulk-update phases"));
     }
   };
 
@@ -100,8 +148,8 @@ export function useAdminLeads() {
         ...payload,
         appointmentDate: payload.appointmentDate || undefined
       });
-      if (assignedToId) {
-        await adminApi.assignLead(leadId, assignedToId);
+      if (assignedToId !== undefined) {
+        await adminApi.assignLead(leadId, assignedToId || null);
       }
       success("Lead updated successfully");
       await loadLeads();
@@ -133,6 +181,11 @@ export function useAdminLeads() {
     pagination,
     isLoading,
     isUploading,
+    selectedIds,
+    toggleSelect,
+    toggleSelectAll,
+    bulkAssign,
+    bulkPhase,
     updateLeadFilter,
     setPage: (page: number) => setPagination((prev) => ({ ...prev, page })),
     assignLead,
@@ -142,4 +195,4 @@ export function useAdminLeads() {
     uploadLeads,
     refresh: loadLeads
   };
-};
+}

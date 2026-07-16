@@ -8,7 +8,8 @@ import {
   Clock,
   ThumbsUp,
   ThumbsDown,
-  Info
+  Info,
+  Pencil
 } from "lucide-react";
 import type { Activity } from "../../types";
 import { formatDateTime } from "../../lib/utils/format";
@@ -26,6 +27,7 @@ const icons = {
   LEAD_CREATED: PlusCircle,
   LEAD_IMPORTED: Upload,
   LEAD_CLAIMED: UserCheck,
+  LEAD_UPDATED: Pencil,
   FOLLOW_UP_SET: Clock,
   CLAIM_TRANSFER_REQUESTED: ArrowRightLeft,
   CLAIM_TRANSFER_APPROVED: ThumbsUp,
@@ -39,6 +41,7 @@ const colors = {
   LEAD_CREATED: "bg-success/15 text-success border-success/20",
   LEAD_IMPORTED: "bg-teal-500/15 text-teal-500 border-teal-500/20",
   LEAD_CLAIMED: "bg-accent/15 text-accent border-accent/20",
+  LEAD_UPDATED: "bg-slate-500/15 text-slate-500 border-slate-500/20",
   FOLLOW_UP_SET: "bg-warning/15 text-warning border-warning/20",
   CLAIM_TRANSFER_REQUESTED: "bg-warning/15 text-warning border-warning/20",
   CLAIM_TRANSFER_APPROVED: "bg-success/15 text-success border-success/20",
@@ -52,6 +55,7 @@ const labels = {
   LEAD_CREATED: "Lead Created",
   LEAD_IMPORTED: "Leads Imported",
   LEAD_CLAIMED: "Lead Claim Updated",
+  LEAD_UPDATED: "Lead Details Updated",
   FOLLOW_UP_SET: "Follow-Up Scheduled",
   CLAIM_TRANSFER_REQUESTED: "Transfer Requested",
   CLAIM_TRANSFER_APPROVED: "Transfer Approved",

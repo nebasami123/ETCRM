@@ -9,7 +9,7 @@ Prerequisites: Node 22+, pnpm 11+, and Docker Desktop (or another Compose-compat
 ```powershell
 pnpm install
 Copy-Item apps\server\.env.example apps\server\.env
-Copy-Item apps\client\.env.exampVle apps\client\.env
+Copy-Item apps\client\.env.example apps\client\.env
 docker compose up -d
 pnpm db:migrate
 pnpm seed

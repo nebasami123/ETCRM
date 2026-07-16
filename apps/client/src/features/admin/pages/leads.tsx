@@ -28,6 +28,9 @@ export function AdminLeads() {
   // Credit assignment state when phase goes CLOSED_WON
   const [activeWonLeadId, setActiveWonLeadId] = useState<string | null>(null);
   const [creditedUserId, setCreditedUserId] = useState("");
+  const [bulkPhase, setBulkPhase] = useState<LeadPhase | "">("");
+  const [bulkAssignTo, setBulkAssignTo] = useState("");
+  const [bulkWonCredit, setBulkWonCredit] = useState("");
 
   const handlePhaseChange = (leadId: string, phase: LeadPhase) => {
     if (phase === "CLOSED_WON") {
@@ -44,6 +47,23 @@ export function AdminLeads() {
       leadsHook.updateLeadPhase(activeWonLeadId, "CLOSED_WON", creditedUserId);
       setActiveWonLeadId(null);
     }
+  };
+
+  const applyBulkAssign = async () => {
+    await leadsHook.bulkAssign(bulkAssignTo || null);
+    setBulkAssignTo("");
+  };
+
+  const applyBulkPhase = async () => {
+    if (!bulkPhase) return;
+    if (bulkPhase === "CLOSED_WON") {
+      if (!bulkWonCredit) return;
+      await leadsHook.bulkPhase("CLOSED_WON", bulkWonCredit);
+    } else {
+      await leadsHook.bulkPhase(bulkPhase);
+    }
+    setBulkPhase("");
+    setBulkWonCredit("");
   };
 
   return (
@@ -104,7 +124,7 @@ export function AdminLeads() {
             onChange={(val) => leadsHook.updateLeadFilter("claimedById", val)}
             options={[
               { value: "", label: "All Claimers" },
-              { value: "unclaimed", label: "Unclaimed" },
+              { value: "UNCLAIMED", label: "Unclaimed" },
               ...leadsHook.salesUsers.map((user) => ({ value: user.id, label: user.name }))
             ]}
             ariaLabel="Filter by claimer"
@@ -123,12 +143,81 @@ export function AdminLeads() {
         </div>
       </Card>
 
+      {leadsHook.selectedIds.length > 0 && (
+        <Card className="rounded-xl border border-accent/30 bg-accent/5 p-4 shadow-surface">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+            <p className="text-xs font-bold text-foreground">{leadsHook.selectedIds.length} lead(s) selected</p>
+            <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-end">
+              <label className="block text-[10px] font-bold uppercase tracking-wider text-muted">
+                Bulk assign
+                <CustomSelect
+                  value={bulkAssignTo}
+                  onChange={setBulkAssignTo}
+                  options={[
+                    { value: "", label: "Unclaim" },
+                    ...leadsHook.salesUsers.map((user) => ({ value: user.id, label: user.name }))
+                  ]}
+                  className="mt-1 min-w-40"
+                  ariaLabel="Bulk assign owner"
+                />
+              </label>
+              <button
+                onClick={applyBulkAssign}
+                className="btn-interactive rounded-lg border border-border bg-surface px-3 py-2 text-xs font-semibold hover:bg-default"
+              >
+                Apply assignment
+              </button>
+              <label className="block text-[10px] font-bold uppercase tracking-wider text-muted">
+                Bulk phase
+                <CustomSelect
+                  value={bulkPhase}
+                  onChange={(val) => setBulkPhase(val as LeadPhase | "")}
+                  options={[{ value: "", label: "Select phase…" }, ...phaseOptions]}
+                  className="mt-1 min-w-40"
+                  ariaLabel="Bulk phase"
+                />
+              </label>
+              {bulkPhase === "CLOSED_WON" && (
+                <label className="block text-[10px] font-bold uppercase tracking-wider text-muted">
+                  Credit agent
+                  <CustomSelect
+                    value={bulkWonCredit}
+                    onChange={setBulkWonCredit}
+                    options={[
+                      { value: "", label: "Select agent…" },
+                      ...leadsHook.salesUsers.map((user) => ({ value: user.id, label: user.name }))
+                    ]}
+                    className="mt-1 min-w-40"
+                    ariaLabel="Bulk win credit"
+                  />
+                </label>
+              )}
+              <button
+                onClick={applyBulkPhase}
+                disabled={!bulkPhase || (bulkPhase === "CLOSED_WON" && !bulkWonCredit)}
+                className="btn-interactive rounded-lg bg-accent px-3 py-2 text-xs font-semibold text-accent-foreground disabled:opacity-40"
+              >
+                Apply phase
+              </button>
+            </div>
+          </div>
+        </Card>
+      )}
+
       {/* Leads Table Card */}
       <Card className="rounded-xl border border-separator bg-surface shadow-surface overflow-hidden">
         <div className="overflow-x-auto" data-scrollbar="thin">
           <table className="w-full min-w-225 text-left text-xs border-collapse">
             <thead>
               <tr className="border-b border-separator bg-default/40 text-muted font-bold uppercase tracking-wider text-[10px]">
+                <th className="px-3 py-3 w-10">
+                  <input
+                    type="checkbox"
+                    checked={leadsHook.leads.length > 0 && leadsHook.selectedIds.length === leadsHook.leads.length}
+                    onChange={leadsHook.toggleSelectAll}
+                    aria-label="Select all leads on page"
+                  />
+                </th>
                 <th className="px-5 py-3">Lead Info</th>
                 <th className="px-5 py-3">Contact</th>
                 <th className="px-5 py-3">License Info</th>
@@ -142,19 +231,27 @@ export function AdminLeads() {
             <tbody className="divide-y divide-separator text-foreground font-medium">
               {leadsHook.isLoading ? (
                 <tr>
-                  <td colSpan={8} className="px-5 py-8 text-center text-muted">
+                  <td colSpan={9} className="px-5 py-8 text-center text-muted">
                     Loading pipeline data...
                   </td>
                 </tr>
               ) : leadsHook.leads.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="px-5 py-8 text-center text-muted">
+                  <td colSpan={9} className="px-5 py-8 text-center text-muted">
                     No leads match your active filters.
                   </td>
                 </tr>
               ) : (
                 leadsHook.leads.map((lead) => (
                   <tr key={lead.id} className="hover:bg-default/20 transition-colors duration-160">
+                    <td className="px-3 py-3">
+                      <input
+                        type="checkbox"
+                        checked={leadsHook.selectedIds.includes(lead.id)}
+                        onChange={() => leadsHook.toggleSelect(lead.id)}
+                        aria-label={`Select ${lead.fullName}`}
+                      />
+                    </td>
                     <td className="px-5 py-3">
                       <p className="font-bold text-foreground">{lead.fullName}</p>
                       <p className="text-[10px] text-muted">{lead.email || "No email provided"}</p>

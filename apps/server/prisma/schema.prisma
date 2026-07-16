@@ -20,6 +20,7 @@ enum ActivityType {
   LEAD_CREATED
   LEAD_IMPORTED
   LEAD_CLAIMED
+  LEAD_UPDATED
   CLAIM_TRANSFER_REQUESTED
   CLAIM_TRANSFER_APPROVED
   CLAIM_TRANSFER_REJECTED
@@ -212,6 +213,7 @@ model ClaimTransferRequest {
 
   @@index([leadId, status])
   @@index([requestedById, status])
+  // One pending transfer request per lead (enforced in DB via partial unique index in migration).
 }
 
 model Quota {

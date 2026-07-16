@@ -17,6 +17,19 @@ interface BarChartProps {
   colors?: string[];
   layout?: "horizontal" | "vertical";
   stacked?: boolean;
+  /** Optional domain for the numeric axis, e.g. [0, 100] for percentages. */
+  domain?: [number, number];
+  /** Optional display labels for yKeys (tooltip/legend). */
+  yLabels?: Record<string, string>;
+  /** Optional tick formatter for the numeric axis. */
+  valueFormatter?: (value: number) => string;
+}
+
+function defaultYLabel(yKey: string) {
+  return yKey
+    .replace(/([A-Z])/g, " $1")
+    .replace(/^./, (c) => c.toUpperCase())
+    .trim();
 }
 
 export function BarChart({
@@ -25,9 +38,13 @@ export function BarChart({
   yKeys,
   colors = ["#309477", "#cda043", "#e67768"],
   layout = "horizontal",
-  stacked = false
+  stacked = false,
+  domain,
+  yLabels,
+  valueFormatter
 }: BarChartProps) {
   const isHorizontal = layout === "horizontal";
+  const formatTick = (value: number) => (valueFormatter ? valueFormatter(value) : String(value));
 
   return (
     <div className="h-full w-full">
@@ -54,18 +71,22 @@ export function BarChart({
           ) : (
             <XAxis
               type="number"
+              domain={domain}
               tickLine={false}
               axisLine={false}
               tick={{ fill: "var(--muted)", fontSize: 10, fontWeight: 500 }}
+              tickFormatter={formatTick}
             />
           )}
           {isHorizontal ? (
             <YAxis
               type="number"
+              domain={domain}
               tickLine={false}
               axisLine={false}
               tick={{ fill: "var(--muted)", fontSize: 10, fontWeight: 500 }}
               allowDecimals={false}
+              tickFormatter={formatTick}
             />
           ) : (
             <YAxis
@@ -78,32 +99,37 @@ export function BarChart({
             />
           )}
           <Tooltip content={<ChartTooltip />} cursor={{ fill: "var(--border)", opacity: 0.15 }} />
-          {yKeys.map((yKey, index) => (
-            <Bar
-              key={yKey}
-              dataKey={yKey}
-              name={yKey.charAt(0).toUpperCase() + yKey.slice(1)}
-              stackId={stacked ? "stack" : undefined}
-              fill={colors[index % colors.length]}
-              radius={
-                isHorizontal
-                  ? [4, 4, 0, 0] // round top corners
-                  : [0, 4, 4, 0] // round right corners
-              }
-              activeBar={{
-                fillOpacity: 0.85,
-                stroke: "var(--foreground)",
-                strokeWidth: 1
-              }}
-            >
-              {data.map((entry, cellIndex) => (
-                <Cell 
-                  key={`cell-${cellIndex}`} 
-                  fill={(entry.fill as string | undefined) || colors[index % colors.length]} 
-                />
-              ))}
-            </Bar>
-          ))}
+          {yKeys.map((yKey, index) => {
+            const isOuterSegment = !stacked || index === yKeys.length - 1;
+            return (
+              <Bar
+                key={yKey}
+                dataKey={yKey}
+                name={yLabels?.[yKey] ?? defaultYLabel(yKey)}
+                stackId={stacked ? "stack" : undefined}
+                fill={colors[index % colors.length]}
+                radius={
+                  !isOuterSegment
+                    ? 0
+                    : isHorizontal
+                      ? [4, 4, 0, 0] // round top corners
+                      : [0, 4, 4, 0] // round right corners
+                }
+                activeBar={{
+                  fillOpacity: 0.85,
+                  stroke: "var(--foreground)",
+                  strokeWidth: 1
+                }}
+              >
+                {data.map((entry, cellIndex) => (
+                  <Cell
+                    key={`cell-${cellIndex}`}
+                    fill={(entry.fill as string | undefined) || colors[index % colors.length]}
+                  />
+                ))}
+              </Bar>
+            );
+          })}
         </RechartsBarChart>
       </ResponsiveContainer>
     </div>

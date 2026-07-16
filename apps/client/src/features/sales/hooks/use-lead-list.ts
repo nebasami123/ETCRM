@@ -3,10 +3,12 @@ import type { Lead, LeadPhase, Pagination } from "../../../types";
 import { salesApi } from "../api";
 import { useToast } from "../../../hooks/use-toast";
 import { getErrorMessage } from "../../../lib/utils/format";
+import { useDebouncedValue } from "../../../hooks/use-debounced-value";
 
 export function useLeadList(scope: "mine" | "all" = "all") {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [search, setSearch] = useState("");
+  const debouncedSearch = useDebouncedValue(search, 300);
   const [phase, setPhase] = useState<LeadPhase | "ALL">("ALL");
   const [pagination, setPagination] = useState<Pagination>({ page: 1, pageSize: 20, total: 0, totalPages: 0 });
   const [isLoading, setIsLoading] = useState(true);
@@ -15,7 +17,13 @@ export function useLeadList(scope: "mine" | "all" = "all") {
   async function loadLeads() {
     try {
       setIsLoading(true);
-      const leadsData = await salesApi.getLeads({ scope, search, phase, page: pagination.page, pageSize: pagination.pageSize });
+      const leadsData = await salesApi.getLeads({
+        scope,
+        search: debouncedSearch,
+        phase,
+        page: pagination.page,
+        pageSize: pagination.pageSize
+      });
       setLeads(leadsData.leads);
       setPagination(leadsData.pagination);
     } catch (err: unknown) {
@@ -27,7 +35,8 @@ export function useLeadList(scope: "mine" | "all" = "all") {
 
   useEffect(() => {
     loadLeads();
-  }, [scope, search, phase, pagination.page, pagination.pageSize]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional: reload on filter/page changes
+  }, [scope, debouncedSearch, phase, pagination.page, pagination.pageSize]);
 
   return {
     leads,

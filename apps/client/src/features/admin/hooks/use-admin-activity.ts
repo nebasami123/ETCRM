@@ -25,14 +25,14 @@ export function useAdminActivity() {
     loadActivity();
   }, []);
 
-  async function downloadReport() {
+  async function downloadReport(range?: { from?: string; to?: string }) {
     try {
       setExporting(true);
-      const response = await adminApi.downloadReport();
+      const response = await adminApi.downloadReport(range);
       const url = URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement("a");
       link.href = url;
-      link.download = `etcrm-performance-report-${Date.now()}.csv`;
+      link.download = `etcrm-performance-report-${range?.from || "all"}-${range?.to || "now"}.csv`;
       link.click();
       URL.revokeObjectURL(url);
       success("Report CSV downloaded successfully");
