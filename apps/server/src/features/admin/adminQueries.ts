@@ -340,77 +340,8 @@ export async function countPendingTransfers() {
 
 /** Leaderboard via SQL aggregates — does not load full event arrays per user. */
 export async function getLeaderboard() {
-  const users = await prisma.user.findMany({
-    where: salesOnly,
-    select: { id: true, name: true },
-    orderBy: { name: "asc" }
-  });
-  if (!users.length) return [];
-
-  const userIds = users.map((u) => u.id);
-
-  const [localClaimed, regClaimed, conversionCredits, callNotes, activityCounts] = await Promise.all([
-    prisma.lead.groupBy({
-      by: ["claimedById"],
-      where: { claimedById: { in: userIds } },
-      _count: { _all: true }
-    }),
-    prisma.registryLead.groupBy({
-      by: ["claimedById"],
-      where: { claimedById: { in: userIds } },
-      _count: { _all: true }
-    }),
-    prisma.activityEvent.groupBy({
-      by: ["creditedUserId", "toPhase"],
-      where: {
-        type: ActivityType.PHASE_CHANGED,
-        creditedUserId: { in: userIds },
-        toPhase: { in: [LeadPhase.CLOSED_WON, LeadPhase.CLOSED_LOST] }
-      },
-      _count: { _all: true }
-    }),
-    prisma.activityEvent.groupBy({
-      by: ["actorId"],
-      where: { actorId: { in: userIds }, type: ActivityType.CALL_NOTE },
-      _count: { _all: true }
-    }),
-    prisma.activityEvent.groupBy({
-      by: ["actorId"],
-      where: { actorId: { in: userIds } },
-      _count: { _all: true }
-    })
-  ]);
-
-  const claimedMap = new Map<string, number>();
-  for (const row of [...localClaimed, ...regClaimed]) {
-    if (!row.claimedById) continue;
-    claimedMap.set(row.claimedById, (claimedMap.get(row.claimedById) || 0) + row._count._all);
-  }
-  const callMap = new Map(callNotes.map((row) => [row.actorId, row._count._all]));
-  const activityMap = new Map(activityCounts.map((row) => [row.actorId, row._count._all]));
-  const wonMap = new Map<string, number>();
-  const lostMap = new Map<string, number>();
-  for (const row of conversionCredits) {
-    if (!row.creditedUserId) continue;
-    if (row.toPhase === LeadPhase.CLOSED_WON) wonMap.set(row.creditedUserId, row._count._all);
-    if (row.toPhase === LeadPhase.CLOSED_LOST) lostMap.set(row.creditedUserId, row._count._all);
-  }
-
-  return users.map((user) => {
-    const conversions = wonMap.get(user.id) || 0;
-    const losses = lostMap.get(user.id) || 0;
-    const totalDecisions = conversions + losses;
-    return {
-      userId: user.id,
-      name: user.name,
-      claimedLeads: claimedMap.get(user.id) || 0,
-      conversions,
-      losses,
-      conversionRate: totalDecisions > 0 ? Math.round((conversions / totalDecisions) * 100) : 0,
-      callNotes: callMap.get(user.id) || 0,
-      totalActivity: activityMap.get(user.id) || 0
-    };
-  });
+  const { buildLeaderboard } = await import("../shared/leaderboardService.js");
+  return buildLeaderboard();
 }
 
 export async function getAdminReportRows({ fromInput, toInput }: { fromInput: unknown; toInput: unknown }) {

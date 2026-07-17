@@ -463,6 +463,7 @@ export interface LeaderboardEntry {
   claimedLeads: number;
   conversions: number;
   losses: number;
+  inProgress: number;
   conversionRate: number;
   callNotes: number;
   totalActivity: number;

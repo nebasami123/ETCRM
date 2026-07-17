@@ -368,7 +368,11 @@ export async function updateLeadPhase({
         type: ActivityType.PHASE_CHANGED,
         fromPhase: existing.phase,
         toPhase: phase,
-        creditedUserId: phase === LeadPhase.CLOSED_WON ? creditedUserId || actorId : null
+        creditedUserId: phase === LeadPhase.CLOSED_WON
+          ? creditedUserId || actorId
+          : phase === LeadPhase.CLOSED_LOST
+            ? existing.claimedById || actorId
+            : null
       });
       return { status: "ok" as const, lead: localLeadToView(updated) };
     }
@@ -387,7 +391,11 @@ export async function updateLeadPhase({
       type: ActivityType.PHASE_CHANGED,
       fromPhase: existing.phase,
       toPhase: phase,
-      creditedUserId: phase === LeadPhase.CLOSED_WON ? creditedUserId || actorId : null
+      creditedUserId: phase === LeadPhase.CLOSED_WON
+        ? creditedUserId || actorId
+        : phase === LeadPhase.CLOSED_LOST
+          ? existing.claimedById || actorId
+          : null
     });
     return { status: "ok" as const, lead: registryLeadToView(updated) };
   });

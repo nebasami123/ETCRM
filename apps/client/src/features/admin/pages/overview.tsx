@@ -38,8 +38,11 @@ export function AdminOverview() {
     );
   }
 
-  const conversionBase = (summary?.won || 0) + (summary?.lost || 0);
-  const winRate = conversionBase ? Math.round(((summary?.won || 0) / conversionBase) * 100) : 0;
+  const totalWon = leaderboard.reduce((sum, e) => sum + e.conversions, 0);
+  const totalLost = leaderboard.reduce((sum, e) => sum + e.losses, 0);
+  const totalInProgress = leaderboard.reduce((sum, e) => sum + e.inProgress, 0);
+  const conversionBase = totalWon + totalLost + totalInProgress;
+  const winRate = conversionBase ? Math.round((totalWon / conversionBase) * 100) : 0;
 
   const phaseData = (Object.keys(phaseLabels) as LeadPhase[]).map((phase) => ({
     name: phaseLabels[phase],
