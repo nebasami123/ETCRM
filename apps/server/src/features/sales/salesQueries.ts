@@ -1,4 +1,4 @@
-import { CampaignStatus, Prisma } from "@prisma/client";
+import { ActivityType, CampaignStatus, LeadPhase, Prisma } from "@prisma/client";
 import { prisma } from "../../config/db.js";
 import { endOfBusinessDay, parseBusinessDate, startOfBusinessDay, taskWindow } from "../../utils/dates.js";
 const UNCLAIMED_PHONE_PLACEHOLDER = "+251 91 000 0000";
