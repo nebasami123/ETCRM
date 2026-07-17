@@ -19,6 +19,7 @@ const phaseColors: Record<LeadPhase, string> = {
   NEW: "var(--accent)",
   CONTACTED: "#3b82f6",
   FOLLOW_UP: "var(--warning)",
+  N_A: "var(--muted)",
   CLOSED_WON: "var(--success)",
   CLOSED_LOST: "var(--danger)"
 };

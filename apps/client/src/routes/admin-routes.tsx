@@ -8,6 +8,7 @@ import { AdminPerformance } from "../features/admin/pages/performance";
 import { AdminReports } from "../features/admin/pages/reports";
 import { AdminTransfers } from "../features/admin/pages/transfers";
 import { AdminSettings } from "../features/admin/pages/settings";
+import { AdminCampaigns } from "../features/admin/pages/campaigns";
 
 export function AdminRoutes() {
   return (
@@ -15,6 +16,8 @@ export function AdminRoutes() {
       <Routes>
         <Route index element={<AdminOverview />} />
         <Route path="leads" element={<AdminLeads />} />
+        <Route path="campaigns" element={<AdminCampaigns />} />
+        <Route path="campaigns/:campaignId" element={<AdminCampaigns />} />
         <Route path="team" element={<AdminTeam />} />
         <Route path="quotas" element={<AdminQuotas />} />
         <Route path="performance" element={<AdminPerformance />} />

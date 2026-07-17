@@ -21,7 +21,7 @@ export const paginationSchema = z.object({
   pageSize: z.coerce.number().int().min(1).max(100).default(50)
 });
 
-export const leadPhases = ["NEW", "CONTACTED", "FOLLOW_UP", "CLOSED_WON", "CLOSED_LOST"];
+export const leadPhases = ["NEW", "CONTACTED", "FOLLOW_UP", "N_A", "CLOSED_WON", "CLOSED_LOST"];
 
 export const transferReasonSchema = z.object({
   reason: z.string().trim().min(3).max(1000)
@@ -34,6 +34,6 @@ export const bulkAssignSchema = z.object({
 
 export const bulkPhaseSchema = z.object({
   leadIds: z.array(z.string().min(1)).min(1).max(200),
-  phase: z.enum(["NEW", "CONTACTED", "FOLLOW_UP", "CLOSED_WON", "CLOSED_LOST"]),
+  phase: z.enum(["NEW", "CONTACTED", "FOLLOW_UP", "N_A", "CLOSED_WON", "CLOSED_LOST"]),
   creditedUserId: z.string().nullable().optional()
 });

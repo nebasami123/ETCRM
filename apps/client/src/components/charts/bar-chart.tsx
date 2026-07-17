@@ -23,6 +23,12 @@ interface BarChartProps {
   yLabels?: Record<string, string>;
   /** Optional tick formatter for the numeric axis. */
   valueFormatter?: (value: number) => string;
+  /** Optional barGap to control spacing between bars (e.g. "-100%" for overlapping). */
+  barGap?: number | string;
+  /** Optional maxBarSize to cap the bar width/height (defaults to 32 for sleek aesthetics). */
+  maxBarSize?: number;
+  /** Optional flag to draw bars overlapping (used for targets vs actuals). */
+  overlapping?: boolean;
 }
 
 function defaultYLabel(yKey: string) {
@@ -41,7 +47,10 @@ export function BarChart({
   stacked = false,
   domain,
   yLabels,
-  valueFormatter
+  valueFormatter,
+  barGap,
+  maxBarSize = 32,
+  overlapping
 }: BarChartProps) {
   const isHorizontal = layout === "horizontal";
   const formatTick = (value: number) => (valueFormatter ? valueFormatter(value) : String(value));
@@ -53,6 +62,7 @@ export function BarChart({
           data={data}
           layout={layout}
           margin={{ top: 10, right: 10, left: isHorizontal ? -20 : 0, bottom: 0 }}
+          barGap={barGap}
         >
           <CartesianGrid
             strokeDasharray="3 3"
@@ -108,6 +118,7 @@ export function BarChart({
                 name={yLabels?.[yKey] ?? defaultYLabel(yKey)}
                 stackId={stacked ? "stack" : undefined}
                 fill={colors[index % colors.length]}
+                maxBarSize={maxBarSize}
                 radius={
                   !isOuterSegment
                     ? 0

@@ -176,13 +176,13 @@ export function LeadForm({
           />
         </FormField>
 
-        <FormField label="Business Woreda" error={errors.businessWoreda}>
+        <FormField label="Subcity / Woreda" error={errors.businessWoreda}>
           <input
             type="text"
             value={businessWoreda}
             onChange={(e) => setBusinessWoreda(e.target.value)}
             className="w-full rounded-lg border border-field-border bg-field-background px-3 py-2 text-xs text-field-foreground placeholder:text-field-placeholder focus:border-accent focus:outline-none"
-            placeholder="Woreda 03"
+            placeholder="Bole, Woreda 03, …"
           />
         </FormField>
 

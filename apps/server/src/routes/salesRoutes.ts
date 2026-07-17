@@ -9,7 +9,9 @@ import {
   setReminderComplete,
   getLead,
   getLeaderboard,
+  listMyCampaigns,
   listMyLeads,
+  localLeadFilterOptions,
   updateAppointment,
   updateFollowUp,
   updateLeadPhase,
@@ -28,6 +30,8 @@ salesRoutes.post("/reminders", addReminder);
 salesRoutes.patch("/reminders/:id", setReminderComplete);
 salesRoutes.get("/leaderboard", getLeaderboard);
 salesRoutes.get("/leads", listMyLeads);
+salesRoutes.get("/leads/filter-options", localLeadFilterOptions);
+salesRoutes.get("/campaigns", listMyCampaigns);
 salesRoutes.post("/leads", createLead);
 salesRoutes.post("/leads/upload", leadUpload.single("file"), uploadLeads);
 salesRoutes.get("/leads/:id", getLead);

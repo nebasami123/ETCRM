@@ -1,7 +1,7 @@
 import type { FormEvent, ReactNode } from "react";
 
 export type Role = "ADMIN" | "SALES";
-export type LeadPhase = "NEW" | "CONTACTED" | "FOLLOW_UP" | "CLOSED_WON" | "CLOSED_LOST";
+export type LeadPhase = "NEW" | "CONTACTED" | "FOLLOW_UP" | "N_A" | "CLOSED_WON" | "CLOSED_LOST";
 export type ActivityType =
   | "CALL_NOTE"
   | "PHASE_CHANGED"
@@ -36,6 +36,8 @@ export interface AuthResponse {
   user: AuthUser;
 }
 
+export type LeadSource = "LOCAL" | "MONGO";
+
 export interface Lead {
   id: string;
   fullName: string;
@@ -44,6 +46,14 @@ export interface Lead {
   /** True when the sales API returned safe placeholder contact details. */
   contactMasked?: boolean;
   phase: LeadPhase;
+  source?: LeadSource;
+  /** Directory business pointer (API still uses mongoBusinessId for compatibility). */
+  mongoBusinessId?: string | null;
+  externalBusinessId?: string | null;
+  /** LOCAL | REGISTRY | VIRTUAL — optional; prefer source when absent. */
+  kind?: "LOCAL" | "REGISTRY" | "VIRTUAL";
+  /** True when this row is a live directory lead not yet materialized in Postgres. */
+  isVirtual?: boolean;
   claimedBy?: UserSummary | null;
   createdBy?: UserSummary | null;
   claimedById?: string | null;
@@ -69,7 +79,66 @@ export interface Lead {
   managerLName?: string | null;
   englishDescription?: string | null;
   subGroupEn?: string | null;
+  registryHydrated?: boolean;
+  registry?: {
+    capital?: number;
+    value?: number;
+    nationality?: string;
+    tin?: string;
+  };
   events?: Activity[];
+}
+
+export interface RegistryLead {
+  mongoBusinessId: string;
+  tin: string;
+  phoneNumber: string;
+  phoneKey: string;
+  fullName: string;
+  businessName: string;
+  businessType: string;
+  capital: number;
+  value: number;
+  nationality: string;
+  managerFirstName: string;
+  managerLastName: string;
+  dateRegistered: string;
+  sector: string;
+  sectorCategory: string;
+  region: string;
+  subcity: string;
+  managerPhone: string;
+  businessNumber: string;
+  crmLeadId: string | null;
+  crmPhase: string | null;
+  claimedById: string | null;
+  claimedByName: string | null;
+  inCrm: boolean;
+  contactMasked?: boolean;
+}
+
+export interface RegistryFilters {
+  search: string;
+  region: string;
+  subcity: string;
+  sector: string | string[];
+  nationality: string;
+  businessType: string;
+  capitalMin: string;
+  capitalMax: string;
+  page: number;
+  pageSize: number;
+}
+
+export interface LeadLocationFilterOptions {
+  regions: string[];
+  subcities: string[];
+  sectors: string[];
+}
+
+export interface RegistryFilterOptions extends LeadLocationFilterOptions {
+  nationalities: string[];
+  businessTypes: string[];
 }
 
 export interface AdminSummary {
@@ -87,6 +156,148 @@ export interface AdminOverviewAggregates {
   phaseCounts: Array<{ phase: LeadPhase; count: number }>;
   agentOutcomes: Array<{ userId: string; name: string; won: number; lost: number; pending: number }>;
   activityMix: Array<{ type: ActivityType; count: number }>;
+}
+
+export type CampaignStatus = "DRAFT" | "ACTIVE" | "PAUSED" | "CLOSED";
+export type CampaignSortMode = "capital_desc" | "capital_asc" | "value_desc" | "value_asc" | "random";
+
+export interface CampaignFilters {
+  region?: string;
+  subcity?: string;
+  sector?: string[];
+  nationality?: string;
+  businessType?: string;
+  capitalMin?: number;
+  capitalMax?: number;
+  scoreMin?: number;
+  scoreMax?: number;
+}
+
+export interface CampaignAllocation {
+  userId: string;
+  count: number;
+  dailyContactGoal?: number;
+}
+
+export interface CampaignStats {
+  total: number;
+  newCount: number;
+  contacted: number;
+  followUp: number;
+  won: number;
+  lost: number;
+  worked: number;
+  progressPct: number;
+  unlinked?: number;
+  byAgent?: Array<{
+    userId: string;
+    name: string;
+    total: number;
+    newCount: number;
+    contacted: number;
+    followUp: number;
+    won: number;
+    lost: number;
+  }>;
+}
+
+export interface CampaignMember {
+  campaignId: string;
+  userId: string;
+  targetCount: number;
+  dailyContactGoal?: number;
+  user: UserSummary;
+}
+
+export interface Campaign {
+  id: string;
+  name: string;
+  label?: string | null;
+  description?: string | null;
+  status: CampaignStatus;
+  filters: CampaignFilters | Record<string, unknown>;
+  sortMode: CampaignSortMode | string;
+  durationDays?: number;
+  startsAt?: DateValue;
+  endsAt?: DateValue;
+  createdById: string;
+  createdBy?: UserSummary;
+  assignedAt?: DateValue;
+  closedAt?: DateValue;
+  createdAt: DateValue;
+  updatedAt?: DateValue;
+  members?: CampaignMember[];
+  stats?: CampaignStats;
+  _count?: { leads: number };
+  leads?: CampaignLeadRow[];
+}
+
+export interface CampaignAnalyticsRow {
+  id: string;
+  name: string;
+  label?: string | null;
+  status: CampaignStatus;
+  durationDays: number;
+  startsAt?: DateValue;
+  endsAt?: DateValue;
+  assignedAt?: DateValue;
+  agentCount: number;
+  stats: {
+    total: number;
+    newCount: number;
+    working: number;
+    won: number;
+    lost: number;
+    worked: number;
+    progressPct: number;
+    winRate: number;
+  };
+}
+
+export interface CampaignLeadRow {
+  id: string;
+  phoneKey: string;
+  phoneNumber: string;
+  fullName: string;
+  businessName?: string | null;
+  capital?: number | null;
+  region?: string | null;
+  subcity?: string | null;
+  leadId?: string | null;
+  assignedToId?: string | null;
+  assignedAt?: DateValue;
+  assignedTo?: UserSummary | null;
+  lead?: { id: string; phase: LeadPhase; claimedById?: string | null; claimedAt?: DateValue } | null;
+}
+
+export interface CampaignPreview {
+  requested: number;
+  matched: number;
+  scannedBusinesses: number;
+  exhausted: boolean;
+  approximateBusinesses: number;
+  businessCountAvailable: boolean;
+  excludedPhoneCount: number;
+  sample: Array<{
+    fullName: string;
+    businessName: string;
+    phoneNumber: string;
+    capital: number;
+    region: string;
+    subcity: string;
+  }>;
+}
+
+export interface SalesCampaign {
+  id: string;
+  name: string;
+  label?: string | null;
+  description?: string | null;
+  status: CampaignStatus;
+  assignedAt?: DateValue;
+  createdAt: DateValue;
+  targetCount: number;
+  stats: { total: number; remaining: number; won: number; lost: number };
 }
 
 export interface Quota {
@@ -115,6 +326,10 @@ export interface LeadFilters {
   phase: LeadPhase | "ALL";
   claimedById: string;
   createdById: string;
+  region: string;
+  subcity: string;
+  sector: string[];
+  source: LeadSource | "ALL" | "";
 }
 
 export interface AdminLeadForm {
@@ -218,8 +433,17 @@ export interface SalesTask {
   phase?: LeadPhase;
 }
 
+export interface CampaignContactGoal {
+  campaignId: string;
+  name: string;
+  label?: string | null;
+  target: number;
+  completed: number;
+}
+
 export interface SalesTaskData {
   tasks: SalesTask[];
+  campaignGoals?: CampaignContactGoal[];
   stats: {
     openTasks: number;
     callsCompleted: number;
@@ -228,6 +452,8 @@ export interface SalesTaskData {
     followUps: number;
     reminders: number;
     overdueFollowUps?: number;
+    campaignContactTarget?: number;
+    campaignContactCompleted?: number;
   };
 }
 

@@ -1,45 +1,120 @@
 import { ActivityType, LeadPhase, Prisma } from "@prisma/client";
 import { prisma } from "../../config/db.js";
 import { businessDate, endOfBusinessDay, parseBusinessDate, startOfBusinessDay } from "../../utils/dates.js";
-import { leadDetailInclude } from "../leads/leadService.js";
-
 const salesOnly = { role: "SALES" };
+
+/**
+ * Live Mongo phones are normal NEW leads in the product model.
+ * Postgres only stores shells once a lead is claimed/worked (plus local creates/imports).
+ * Overview totals therefore combine live Mongo volume with CRM phase progress.
+ */
+async function getLiveLeadUniverseSize() {
+  try {
+    const registry = await import("../registry/registryService.js").then((m) => m.getRegistrySummary());
+    return { total: registry.totalBusinesses, available: registry.available };
+  } catch {
+    return { total: 0, available: false as const };
+  }
+}
 
 export async function getAdminSummary() {
   const today = startOfBusinessDay();
-  const [leads, salesUsers, won, lost, followUps, unclaimed, salesCreatedToday, pendingTransfers] = await Promise.all([
+  const [
+    localLeads,
+    regLeads,
+    salesUsers,
+    localWon,
+    regWon,
+    localLost,
+    regLost,
+    localFollow,
+    regFollow,
+    localClaimed,
+    regClaimed,
+    salesCreatedToday,
+    pendingTransfers,
+    live
+  ] = await Promise.all([
     prisma.lead.count(),
+    prisma.registryLead.count(),
     prisma.user.count({ where: salesOnly }),
     prisma.lead.count({ where: { phase: LeadPhase.CLOSED_WON } }),
+    prisma.registryLead.count({ where: { phase: LeadPhase.CLOSED_WON } }),
     prisma.lead.count({ where: { phase: LeadPhase.CLOSED_LOST } }),
+    prisma.registryLead.count({ where: { phase: LeadPhase.CLOSED_LOST } }),
     prisma.lead.count({ where: { phase: LeadPhase.FOLLOW_UP } }),
-    prisma.lead.count({ where: { claimedById: null } }),
+    prisma.registryLead.count({ where: { phase: LeadPhase.FOLLOW_UP } }),
+    prisma.lead.count({ where: { claimedById: { not: null } } }),
+    prisma.registryLead.count({ where: { claimedById: { not: null } } }),
     prisma.lead.count({ where: { createdAt: { gte: today }, createdBy: salesOnly } }),
-    prisma.claimTransferRequest.count({ where: { status: "PENDING" } })
+    prisma.claimTransferRequest.count({ where: { status: "PENDING" } }),
+    getLiveLeadUniverseSize()
   ]);
-  return { leads, salesUsers, won, lost, followUps, unclaimed, salesCreatedToday, pendingTransfers };
+
+  const crmLeads = localLeads + regLeads;
+  const won = localWon + regWon;
+  const lost = localLost + regLost;
+  const followUps = localFollow + regFollow;
+  const claimed = localClaimed + regClaimed;
+  // Single lead total: live directory universe is the NEW pool; never under-count CRM rows if directory is down.
+  const leads = Math.max(live.total, crmLeads);
+  const unclaimed = Math.max(0, leads - claimed);
+
+  return {
+    leads,
+    salesUsers,
+    won,
+    lost,
+    followUps,
+    unclaimed,
+    salesCreatedToday,
+    pendingTransfers
+  };
 }
 
 /** Full-population aggregates for overview charts (not page-limited). */
 export async function getAdminOverviewAggregates() {
-  const [phaseGroups, claimedByPhaseGroups, activityGroups, salesUsers] = await Promise.all([
-    prisma.lead.groupBy({ by: ["phase"], _count: { _all: true } }),
-    prisma.lead.groupBy({
-      by: ["claimedById", "phase"],
-      where: { claimedById: { not: null } },
-      _count: { _all: true }
-    }),
-    prisma.activityEvent.groupBy({ by: ["type"], _count: { _all: true } }),
-    prisma.user.findMany({
-      where: salesOnly,
-      select: { id: true, name: true },
-      orderBy: { name: "asc" }
-    })
-  ]);
+  const [localPhases, regPhases, localClaimedByPhase, regClaimedByPhase, activityGroups, salesUsers, live] =
+    await Promise.all([
+      prisma.lead.groupBy({ by: ["phase"], _count: { _all: true } }),
+      prisma.registryLead.groupBy({ by: ["phase"], _count: { _all: true } }),
+      prisma.lead.groupBy({
+        by: ["claimedById", "phase"],
+        where: { claimedById: { not: null } },
+        _count: { _all: true }
+      }),
+      prisma.registryLead.groupBy({
+        by: ["claimedById", "phase"],
+        where: { claimedById: { not: null } },
+        _count: { _all: true }
+      }),
+      prisma.activityEvent.groupBy({ by: ["type"], _count: { _all: true } }),
+      prisma.user.findMany({
+        where: salesOnly,
+        select: { id: true, name: true },
+        orderBy: { name: "asc" }
+      }),
+      getLiveLeadUniverseSize()
+    ]);
+
+  const phaseGroups = [...localPhases, ...regPhases];
+  const claimedByPhaseGroups = [...localClaimedByPhase, ...regClaimedByPhase];
+  const crmPhaseCount = (phase: LeadPhase) =>
+    phaseGroups.filter((g) => g.phase === phase).reduce((sum, g) => sum + g._count._all, 0);
+  const crmNonNew =
+    crmPhaseCount(LeadPhase.CONTACTED) +
+    crmPhaseCount(LeadPhase.FOLLOW_UP) +
+    crmPhaseCount(LeadPhase.N_A) +
+    crmPhaseCount(LeadPhase.CLOSED_WON) +
+    crmPhaseCount(LeadPhase.CLOSED_LOST);
+  const crmTotal = phaseGroups.reduce((sum, row) => sum + row._count._all, 0);
+  const universe = Math.max(live.total, crmTotal);
+  // Everything in the live universe that is not already advanced in CRM is still NEW.
+  const newCount = Math.max(crmPhaseCount(LeadPhase.NEW), universe - crmNonNew);
 
   const phaseCounts = (Object.values(LeadPhase) as LeadPhase[]).map((phase) => ({
     phase,
-    count: phaseGroups.find((g) => g.phase === phase)?._count._all ?? 0
+    count: phase === LeadPhase.NEW ? newCount : crmPhaseCount(phase)
   }));
 
   const outcomeByUser = new Map<string, { won: number; lost: number; pending: number }>();
@@ -92,37 +167,54 @@ export async function listAdminLeads(filters: {
   phase?: string;
   claimedById?: string;
   createdById?: string;
+  region?: string;
+  subcity?: string;
+  sector?: string | string[];
+  source?: string;
   page?: number;
   pageSize?: number;
 }) {
-  const search = filters.search?.trim();
-  const phase = filters.phase?.trim();
-  const claimedById = filters.claimedById?.trim();
-  const where: Prisma.LeadWhereInput = {
-    ...(phase && phase !== "ALL" && Object.values(LeadPhase).includes(phase as LeadPhase) ? { phase: phase as LeadPhase } : {}),
-    ...(claimedById === "UNCLAIMED" ? { claimedById: null } : claimedById ? { claimedById } : {}),
-    ...(filters.createdById ? { createdById: filters.createdById } : {}),
-    ...(search
-      ? {
-          OR: ["fullName", "phoneNumber", "email", "businessName", "licenceNumber", "businessRegion", "businessWoreda"].map(
-            (field) => ({ [field]: { contains: search, mode: "insensitive" } })
-          )
-        }
-      : {})
-  };
-  const page = Math.max(1, filters.page || 1);
-  const pageSize = Math.min(100, Math.max(1, filters.pageSize || 50));
-  const [leads, total] = await prisma.$transaction([
-    prisma.lead.findMany({
-      where,
-      include: leadDetailInclude,
-      orderBy: { createdAt: "desc" },
-      skip: (page - 1) * pageSize,
-      take: pageSize
-    }),
-    prisma.lead.count({ where })
-  ]);
-  return { leads, pagination: { page, pageSize, total, totalPages: Math.ceil(total / pageSize) } };
+  const { listLiveMongoLeads, shouldUseLiveMongoList } = await import("../leads/unifiedLeadService.js");
+  const { normalizeSectorFilter } = await import("../registry/registryService.js");
+  const sectors = normalizeSectorFilter(filters.sector);
+  // Live Mongo feed is the default "all leads" universe (unique phones as NEW).
+  // Skip it when admin is managing CRM-only slices (claimer, creator, advanced phases, local-only).
+  if (!filters.createdById && shouldUseLiveMongoList(filters)) {
+    const live = await listLiveMongoLeads({
+      search: filters.search,
+      region: filters.region,
+      subcity: filters.subcity,
+      sector: sectors,
+      phase: filters.phase,
+      claimedById: filters.claimedById,
+      page: filters.page,
+      pageSize: filters.pageSize
+    });
+    return {
+      leads: live.leads,
+      pagination: {
+        page: live.pagination.page,
+        pageSize: live.pagination.pageSize,
+        total: live.pagination.total,
+        totalPages: live.pagination.totalPages
+      }
+    };
+  }
+
+  const { listCrmLeads } = await import("../leads/crmListService.js");
+  return listCrmLeads({
+    search: filters.search,
+    phase: filters.phase,
+    claimedById: filters.claimedById,
+    createdById: filters.createdById,
+    region: filters.region,
+    subcity: filters.subcity,
+    sector: sectors,
+    source: filters.source,
+    page: filters.page,
+    pageSize: filters.pageSize,
+    orderBy: "createdAt"
+  });
 }
 
 export async function listAdminActivity(input: { limit?: unknown; page?: unknown }) {
@@ -132,8 +224,7 @@ export async function listAdminActivity(input: { limit?: unknown; page?: unknown
     prisma.activityEvent.findMany({
       include: {
         actor: { select: { id: true, name: true, email: true, role: true } },
-        creditedUser: { select: { id: true, name: true } },
-        lead: { select: { id: true, fullName: true, phoneNumber: true, phase: true } }
+        creditedUser: { select: { id: true, name: true } }
       },
       orderBy: { createdAt: "desc" },
       skip: (page - 1) * limit,
@@ -141,7 +232,36 @@ export async function listAdminActivity(input: { limit?: unknown; page?: unknown
     }),
     prisma.activityEvent.count()
   ]);
-  return { activities, pagination: { page, pageSize: limit, total, totalPages: Math.ceil(total / limit) } };
+
+  const localIds = activities.filter((a) => a.leadKind === "LOCAL" && a.leadId).map((a) => a.leadId!);
+  const regIds = activities.filter((a) => a.leadKind === "REGISTRY" && a.leadId).map((a) => a.leadId!);
+  const [locals, regs] = await Promise.all([
+    localIds.length
+      ? prisma.lead.findMany({
+          where: { id: { in: localIds } },
+          select: { id: true, fullName: true, phoneNumber: true, phase: true }
+        })
+      : [],
+    regIds.length
+      ? prisma.registryLead.findMany({
+          where: { id: { in: regIds } },
+          select: { id: true, displayName: true, phoneNumber: true, phase: true }
+        })
+      : []
+  ]);
+  const leadMap = new Map<string, { id: string; fullName: string; phoneNumber: string; phase: string }>();
+  for (const l of locals) leadMap.set(l.id, l);
+  for (const l of regs) {
+    leadMap.set(l.id, { id: l.id, fullName: l.displayName, phoneNumber: l.phoneNumber, phase: l.phase });
+  }
+
+  return {
+    activities: activities.map((a) => ({
+      ...a,
+      lead: a.leadId ? leadMap.get(a.leadId) ?? null : null
+    })),
+    pagination: { page, pageSize: limit, total, totalPages: Math.ceil(total / limit) }
+  };
 }
 
 export async function listAdminQuotas(dateInput: unknown) {
@@ -153,23 +273,65 @@ export async function listAdminQuotas(dateInput: unknown) {
 }
 
 export async function listClaimTransferRequests(status = "PENDING") {
-  return prisma.claimTransferRequest.findMany({
+  const rows = await prisma.claimTransferRequest.findMany({
     where: status === "ALL" ? {} : { status: status as Prisma.EnumClaimRequestStatusFilter["equals"] },
     include: {
-      lead: {
-        select: {
-          id: true,
-          fullName: true,
-          phoneNumber: true,
-          claimedBy: { select: { id: true, name: true } }
-        }
-      },
       requestedBy: { select: { id: true, name: true, email: true } },
       resolvedBy: { select: { id: true, name: true } }
     },
     orderBy: { createdAt: "desc" },
     take: 100
   });
+
+  const localIds = rows.filter((r) => r.leadKind === "LOCAL").map((r) => r.leadId);
+  const regIds = rows.filter((r) => r.leadKind === "REGISTRY").map((r) => r.leadId);
+  const [locals, regs] = await Promise.all([
+    localIds.length
+      ? prisma.lead.findMany({
+          where: { id: { in: localIds } },
+          select: {
+            id: true,
+            fullName: true,
+            phoneNumber: true,
+            claimedBy: { select: { id: true, name: true } }
+          }
+        })
+      : [],
+    regIds.length
+      ? prisma.registryLead.findMany({
+          where: { id: { in: regIds } },
+          select: {
+            id: true,
+            displayName: true,
+            phoneNumber: true,
+            claimedBy: { select: { id: true, name: true } }
+          }
+        })
+      : []
+  ]);
+  const leadMap = new Map<
+    string,
+    { id: string; fullName: string; phoneNumber: string; claimedBy: { id: string; name: string } | null }
+  >();
+  for (const l of locals) leadMap.set(l.id, l);
+  for (const l of regs) {
+    leadMap.set(l.id, {
+      id: l.id,
+      fullName: l.displayName,
+      phoneNumber: l.phoneNumber,
+      claimedBy: l.claimedBy
+    });
+  }
+
+  return rows.map((row) => ({
+    ...row,
+    lead: leadMap.get(row.leadId) ?? {
+      id: row.leadId,
+      fullName: "Unknown lead",
+      phoneNumber: "",
+      claimedBy: null
+    }
+  }));
 }
 
 export async function countPendingTransfers() {
@@ -187,8 +349,13 @@ export async function getLeaderboard() {
 
   const userIds = users.map((u) => u.id);
 
-  const [claimedCounts, conversionCredits, callNotes, activityCounts] = await Promise.all([
+  const [localClaimed, regClaimed, conversionCredits, callNotes, activityCounts] = await Promise.all([
     prisma.lead.groupBy({
+      by: ["claimedById"],
+      where: { claimedById: { in: userIds } },
+      _count: { _all: true }
+    }),
+    prisma.registryLead.groupBy({
       by: ["claimedById"],
       where: { claimedById: { in: userIds } },
       _count: { _all: true }
@@ -214,7 +381,11 @@ export async function getLeaderboard() {
     })
   ]);
 
-  const claimedMap = new Map(claimedCounts.map((row) => [row.claimedById!, row._count._all]));
+  const claimedMap = new Map<string, number>();
+  for (const row of [...localClaimed, ...regClaimed]) {
+    if (!row.claimedById) continue;
+    claimedMap.set(row.claimedById, (claimedMap.get(row.claimedById) || 0) + row._count._all);
+  }
   const callMap = new Map(callNotes.map((row) => [row.actorId, row._count._all]));
   const activityMap = new Map(activityCounts.map((row) => [row.actorId, row._count._all]));
   const wonMap = new Map<string, number>();

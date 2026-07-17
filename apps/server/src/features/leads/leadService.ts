@@ -2,14 +2,7 @@ import { LeadPhase, Prisma } from "@prisma/client";
 
 export const leadDetailInclude = {
   createdBy: { select: { id: true, name: true, email: true, role: true } },
-  claimedBy: { select: { id: true, name: true, email: true, role: true } },
-  events: {
-    include: {
-      actor: { select: { id: true, name: true, role: true } },
-      creditedUser: { select: { id: true, name: true, role: true } }
-    },
-    orderBy: { createdAt: "desc" }
-  }
+  claimedBy: { select: { id: true, name: true, email: true, role: true } }
 } satisfies Prisma.LeadInclude;
 
 export function phoneKey(value: string) {

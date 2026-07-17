@@ -12,6 +12,8 @@ enum LeadPhase {
   NEW
   CONTACTED
   FOLLOW_UP
+  /// Unreachable / unanswered / not applicable — not won or lost.
+  N_A
   CLOSED_WON
   CLOSED_LOST
 }
@@ -37,6 +39,19 @@ enum ClaimRequestStatus {
   CANCELLED
 }
 
+/// LOCAL = fat Lead row; REGISTRY = thin RegistryLead shell pointing at external directory.
+enum LeadKind {
+  LOCAL
+  REGISTRY
+}
+
+enum CampaignStatus {
+  DRAFT
+  ACTIVE
+  PAUSED
+  CLOSED
+}
+
 model User {
   id            String    @id
   name          String
@@ -50,28 +65,33 @@ model User {
   createdAt     DateTime  @default(now()) @db.Timestamptz(3)
   updatedAt     DateTime  @updatedAt @db.Timestamptz(3)
 
-  accounts              Account[]
-  sessions              Session[]
-  createdLeads          Lead[]                 @relation("CreatedLeads")
-  claimedLeads          Lead[]                 @relation("ClaimedLeads")
-  events                ActivityEvent[]        @relation("EventActor")
-  conversionCredits     ActivityEvent[]        @relation("ConversionCredit")
-  quotas                Quota[]
-  claimRequests         ClaimTransferRequest[] @relation("RequestedClaimTransfers")
-  resolvedClaimRequests ClaimTransferRequest[] @relation("ResolvedClaimTransfers")
-  reminders             Reminder[]
+  accounts                  Account[]
+  sessions                  Session[]
+  createdLeads              Lead[]                 @relation("CreatedLeads")
+  claimedLeads              Lead[]                 @relation("ClaimedLeads")
+  createdRegistryLeads      RegistryLead[]         @relation("CreatedRegistryLeads")
+  claimedRegistryLeads      RegistryLead[]         @relation("ClaimedRegistryLeads")
+  events                    ActivityEvent[]        @relation("EventActor")
+  conversionCredits         ActivityEvent[]        @relation("ConversionCredit")
+  quotas                    Quota[]
+  claimRequests             ClaimTransferRequest[] @relation("RequestedClaimTransfers")
+  resolvedClaimRequests     ClaimTransferRequest[] @relation("ResolvedClaimTransfers")
+  reminders                 Reminder[]
+  createdCampaigns          Campaign[]             @relation("CampaignCreator")
+  campaignMemberships       CampaignMember[]
+  campaignAssignments       CampaignLead[]         @relation("CampaignAssignee")
 }
 
 model Reminder {
-  id          String   @id @default(cuid())
+  id          String    @id @default(cuid())
   userId      String
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   label       String
   note        String?
-  dueAt       DateTime @db.Timestamptz(3)
+  dueAt       DateTime  @db.Timestamptz(3)
   completedAt DateTime? @db.Timestamptz(3)
-  createdAt   DateTime @default(now()) @db.Timestamptz(3)
-  updatedAt   DateTime @updatedAt @db.Timestamptz(3)
+  createdAt   DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime  @updatedAt @db.Timestamptz(3)
 
   @@index([userId, dueAt])
   @@index([userId, completedAt])
@@ -123,51 +143,49 @@ model Verification {
   @@index([identifier])
 }
 
+/// Full CRM row for manually created / imported (LOCAL) leads.
 model Lead {
-  id                    String    @id @default(cuid())
-  fullName              String
-  phoneNumber           String
-  phoneKey              String    @unique
-  email                 String    @default("")
-  phase                 LeadPhase @default(NEW)
-  createdById           String?
-  createdBy             User?     @relation("CreatedLeads", fields: [createdById], references: [id], onDelete: SetNull)
-  claimedById           String?
-  claimedBy             User?     @relation("ClaimedLeads", fields: [claimedById], references: [id], onDelete: SetNull)
-  claimedAt             DateTime? @db.Timestamptz(3)
-  appointmentDate       DateTime? @db.Timestamptz(3)
-  nextFollowUpAt        DateTime? @db.Timestamptz(3)
-  dateRegistered        DateTime? @db.Timestamptz(3)
-  legalStatusNameEng    String?
-  legalStatusNameAmh    String?
-  status                String?
-  licenceNumber         String?
-  licenceKey            String?
-  renewedTo             DateTime? @db.Timestamptz(3)
-  siteId                String?
-  businessName          String?
-  businessNameAmharic   String?
-  managerFName          String?
-  managerMName          String?
-  managerLName          String?
-  description           String?
-  code                  String?
-  englishDescription    String?
-  amDescription         String?
-  subGroup              String?
-  subGroupAm            String?
-  subGroupEn            String?
-  businessRegion        String?
-  businessZone          String?
-  businessWoreda        String?
-  businessKebele        String?
-  houseNumber           String?
-  businessTelephone     String?
-  createdAt             DateTime  @default(now()) @db.Timestamptz(3)
-  updatedAt             DateTime  @updatedAt @db.Timestamptz(3)
-
-  events                ActivityEvent[]
-  claimTransferRequests ClaimTransferRequest[]
+  id                  String    @id @default(cuid())
+  fullName            String
+  phoneNumber         String
+  phoneKey            String    @unique
+  email               String    @default("")
+  phase               LeadPhase @default(NEW)
+  createdById         String?
+  createdBy           User?     @relation("CreatedLeads", fields: [createdById], references: [id], onDelete: SetNull)
+  claimedById         String?
+  claimedBy           User?     @relation("ClaimedLeads", fields: [claimedById], references: [id], onDelete: SetNull)
+  claimedAt           DateTime? @db.Timestamptz(3)
+  appointmentDate     DateTime? @db.Timestamptz(3)
+  nextFollowUpAt      DateTime? @db.Timestamptz(3)
+  dateRegistered      DateTime? @db.Timestamptz(3)
+  legalStatusNameEng  String?
+  legalStatusNameAmh  String?
+  status              String?
+  licenceNumber       String?
+  licenceKey          String?
+  renewedTo           DateTime? @db.Timestamptz(3)
+  siteId              String?
+  businessName        String?
+  businessNameAmharic String?
+  managerFName        String?
+  managerMName        String?
+  managerLName        String?
+  description         String?
+  code                String?
+  englishDescription  String?
+  amDescription       String?
+  subGroup            String?
+  subGroupAm          String?
+  subGroupEn          String?
+  businessRegion      String?
+  businessZone        String?
+  businessWoreda      String?
+  businessKebele      String?
+  houseNumber         String?
+  businessTelephone   String?
+  createdAt           DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt           DateTime  @updatedAt @db.Timestamptz(3)
 
   @@index([phase])
   @@index([licenceKey])
@@ -175,12 +193,126 @@ model Lead {
   @@index([createdById])
   @@index([nextFollowUpAt])
   @@index([appointmentDate])
+  @@index([businessRegion])
+  @@index([businessWoreda])
+}
+
+/// Thin CRM shell for directory-sourced leads. Business fields live in the external directory.
+model RegistryLead {
+  id                 String    @id @default(cuid())
+  externalBusinessId String
+  phoneKey           String    @unique
+  phoneNumber        String
+  /// Offline-safe label for planner/activity when directory is unavailable.
+  displayName        String
+  /// Filter keys captured at claim for SQL search without directory.
+  regionKey          String?
+  subcityKey         String?
+  sectorKey          String?
+  phase              LeadPhase @default(NEW)
+  createdById        String?
+  createdBy          User?     @relation("CreatedRegistryLeads", fields: [createdById], references: [id], onDelete: SetNull)
+  claimedById        String?
+  claimedBy          User?     @relation("ClaimedRegistryLeads", fields: [claimedById], references: [id], onDelete: SetNull)
+  claimedAt          DateTime? @db.Timestamptz(3)
+  appointmentDate    DateTime? @db.Timestamptz(3)
+  nextFollowUpAt     DateTime? @db.Timestamptz(3)
+  createdAt          DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt          DateTime  @updatedAt @db.Timestamptz(3)
+
+  @@unique([externalBusinessId, phoneKey])
+  @@index([externalBusinessId])
+  @@index([phase])
+  @@index([claimedById])
+  @@index([createdById])
+  @@index([nextFollowUpAt])
+  @@index([appointmentDate])
+  @@index([regionKey])
+  @@index([subcityKey])
+  @@index([sectorKey])
+  @@index([displayName])
+}
+
+/// Global phone uniqueness across Lead + RegistryLead.
+model LeadPhoneIndex {
+  phoneKey String   @id
+  kind     LeadKind
+  leadId   String
+
+  @@index([kind, leadId])
+}
+
+model Campaign {
+  id           String         @id @default(cuid())
+  name         String
+  label        String?
+  description  String?
+  status       CampaignStatus @default(DRAFT)
+  filters      Json           @default("{}")
+  sortMode     String         @default("capital_desc")
+  durationDays Int            @default(14)
+  startsAt     DateTime?      @db.Timestamptz(3)
+  endsAt       DateTime?      @db.Timestamptz(3)
+  createdById  String
+  createdBy    User           @relation("CampaignCreator", fields: [createdById], references: [id])
+  assignedAt   DateTime?      @db.Timestamptz(3)
+  closedAt     DateTime?      @db.Timestamptz(3)
+  createdAt    DateTime       @default(now()) @db.Timestamptz(3)
+  updatedAt    DateTime       @updatedAt @db.Timestamptz(3)
+
+  members CampaignMember[]
+  leads   CampaignLead[]
+
+  @@index([status, createdAt])
+  @@index([createdById])
+  @@index([endsAt])
+}
+
+model CampaignMember {
+  campaignId       String
+  userId           String
+  targetCount      Int      @default(0)
+  dailyContactGoal Int      @default(0)
+  campaign         Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt        DateTime @default(now()) @db.Timestamptz(3)
+
+  @@id([campaignId, userId])
+  @@index([userId])
+}
+
+model CampaignLead {
+  id                 String    @id @default(cuid())
+  campaignId         String
+  campaign           Campaign  @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  phoneKey           String
+  phoneNumber        String
+  externalBusinessId String?
+  fullName           String
+  businessName       String?
+  capital            Float?
+  region             String?
+  subcity            String?
+  /// Polymorphic: REGISTRY (typical) or LOCAL if ever assigned.
+  leadKind           LeadKind?
+  leadId             String?
+  assignedToId       String?
+  assignedTo         User?     @relation("CampaignAssignee", fields: [assignedToId], references: [id], onDelete: SetNull)
+  assignedAt         DateTime? @db.Timestamptz(3)
+  createdAt          DateTime  @default(now()) @db.Timestamptz(3)
+
+  @@unique([campaignId, phoneKey])
+  @@index([campaignId, assignedToId])
+  @@index([phoneKey])
+  @@index([leadKind, leadId])
+  @@index([assignedToId])
 }
 
 model ActivityEvent {
   id             String       @id @default(cuid())
+  /// Polymorphic lead reference (no cross-table FK).
+  leadKind       LeadKind?
   leadId         String?
-  lead           Lead?        @relation(fields: [leadId], references: [id], onDelete: Cascade)
   actorId        String
   actor          User         @relation("EventActor", fields: [actorId], references: [id])
   creditedUserId String?
@@ -192,28 +324,27 @@ model ActivityEvent {
   metadata       Json?
   createdAt      DateTime     @default(now()) @db.Timestamptz(3)
 
-  @@index([leadId, createdAt])
+  @@index([leadKind, leadId, createdAt])
   @@index([actorId, createdAt])
   @@index([creditedUserId, createdAt])
   @@index([type, createdAt])
 }
 
 model ClaimTransferRequest {
-  id           String             @id @default(cuid())
-  leadId       String
-  lead         Lead               @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  id            String             @id @default(cuid())
+  leadKind      LeadKind
+  leadId        String
   requestedById String
-  requestedBy  User               @relation("RequestedClaimTransfers", fields: [requestedById], references: [id])
-  status       ClaimRequestStatus @default(PENDING)
-  reason       String
-  resolvedById String?
-  resolvedBy   User?              @relation("ResolvedClaimTransfers", fields: [resolvedById], references: [id], onDelete: SetNull)
-  resolvedAt   DateTime?          @db.Timestamptz(3)
-  createdAt    DateTime           @default(now()) @db.Timestamptz(3)
+  requestedBy   User               @relation("RequestedClaimTransfers", fields: [requestedById], references: [id])
+  status        ClaimRequestStatus @default(PENDING)
+  reason        String
+  resolvedById  String?
+  resolvedBy    User?              @relation("ResolvedClaimTransfers", fields: [resolvedById], references: [id], onDelete: SetNull)
+  resolvedAt    DateTime?          @db.Timestamptz(3)
+  createdAt     DateTime           @default(now()) @db.Timestamptz(3)
 
-  @@index([leadId, status])
+  @@index([leadKind, leadId, status])
   @@index([requestedById, status])
-  // One pending transfer request per lead (enforced in DB via partial unique index in migration).
 }
 
 model Quota {

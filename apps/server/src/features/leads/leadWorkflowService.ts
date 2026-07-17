@@ -1,8 +1,17 @@
-import { ActivityType, ClaimRequestStatus, LeadPhase, Prisma } from "@prisma/client";
+import { ActivityType, ClaimRequestStatus, LeadKind, LeadPhase, Prisma } from "@prisma/client";
 import { prisma } from "../../config/db.js";
 import { parseOptionalDate } from "../../utils/dates.js";
 import { buildLead, prepareLeadImport, readLeadRows, removeUpload, type SkippedLeadRow } from "./leadImportService.js";
 import { leadDetailInclude, licenceKey, phoneKey } from "./leadService.js";
+import {
+  loadWorkflowShell,
+  localLeadInclude,
+  registryLeadInclude,
+  rekeyPhone,
+  reservePhone,
+  resolveLeadRef
+} from "./leadIdentity.js";
+import { getLeadViewById, localLeadToView, registryLeadToView, type LeadView } from "./leadView.js";
 
 type Db = Prisma.TransactionClient;
 
@@ -64,35 +73,102 @@ export function importEmptyMessage(result: Pick<ImportResult, "skipped" | "skipp
 export async function createLead({ input, actorId, claimActor = false }: { input: LeadInput; actorId: string; claimActor?: boolean }) {
   const data = leadData(input, actorId, claimActor);
   return prisma.$transaction(async (db) => {
-    const duplicate = await db.lead.findFirst({
-      where: { phoneKey: data.phoneKey },
-      select: { id: true, fullName: true, phoneNumber: true, licenceNumber: true }
-    });
-    if (duplicate) return { status: "duplicate" as const, duplicate };
+    const taken = await db.leadPhoneIndex.findUnique({ where: { phoneKey: data.phoneKey } });
+    if (taken) {
+      const duplicate =
+        taken.kind === LeadKind.LOCAL
+          ? await db.lead.findUnique({
+              where: { id: taken.leadId },
+              select: { id: true, fullName: true, phoneNumber: true, licenceNumber: true }
+            })
+          : await db.registryLead.findUnique({
+              where: { id: taken.leadId },
+              select: { id: true, displayName: true, phoneNumber: true }
+            }).then((row) =>
+              row
+                ? { id: row.id, fullName: row.displayName, phoneNumber: row.phoneNumber, licenceNumber: null as string | null }
+                : null
+            );
+      if (duplicate) return { status: "duplicate" as const, duplicate };
+    }
 
     const lead = await db.lead.create({ data, include: leadDetailInclude });
-    await event(db, { actorId, leadId: lead.id, type: ActivityType.LEAD_CREATED, metadata: { claimedOnCreate: claimActor } });
-    if (claimActor) await event(db, { actorId, leadId: lead.id, type: ActivityType.LEAD_CLAIMED });
-    return { status: "ok" as const, lead };
+    await reservePhone(db, { phoneKey: data.phoneKey, kind: LeadKind.LOCAL, leadId: lead.id });
+    await event(db, {
+      actorId,
+      leadKind: LeadKind.LOCAL,
+      leadId: lead.id,
+      type: ActivityType.LEAD_CREATED,
+      metadata: { claimedOnCreate: claimActor }
+    });
+    if (claimActor) {
+      await event(db, { actorId, leadKind: LeadKind.LOCAL, leadId: lead.id, type: ActivityType.LEAD_CLAIMED });
+    }
+    return { status: "ok" as const, lead: localLeadToView(lead) };
   });
 }
 
-export async function importLeads({ file, actorId, claimActor = false, source }: { file: Express.Multer.File; actorId: string; claimActor?: boolean; source: "admin-upload" | "sales-upload" }) {
+export async function importLeads({
+  file,
+  actorId,
+  claimActor = false,
+  source
+}: {
+  file: Express.Multer.File;
+  actorId: string;
+  claimActor?: boolean;
+  source: "admin-upload" | "sales-upload";
+}) {
   try {
     const rows = await readLeadRows(file);
     const candidates = rows.map((row, index) => ({ rowNumber: index + 2, lead: buildLead(row, { createdById: actorId }) }));
     return await prisma.$transaction(async (db) => {
       const { leads, skipped } = await prepareLeadImport(db, candidates);
       let skippedByReason = summarizeSkippedRows(skipped);
-      if (!leads.length) return { status: "empty" as const, imported: 0, skipped: skipped.length, skippedRows: skipped.slice(0, 25), skippedByReason };
+      if (!leads.length) {
+        return { status: "empty" as const, imported: 0, skipped: skipped.length, skippedRows: skipped.slice(0, 25), skippedByReason };
+      }
       const now = new Date();
-      const inserted = await db.lead.createMany({ data: leads.map((lead) => ({ ...lead, claimedById: claimActor ? actorId : null, claimedAt: claimActor ? now : null })), skipDuplicates: true });
+      const inserted = await db.lead.createMany({
+        data: leads.map((lead) => ({
+          ...lead,
+          claimedById: claimActor ? actorId : null,
+          claimedAt: claimActor ? now : null
+        })),
+        skipDuplicates: true
+      });
       const writeConflicts = leads.length - inserted.count;
-      if (writeConflicts) skipped.push(...Array.from({ length: writeConflicts }, () => ({ row: 0, reason: "Already exists in CRM" })));
+      if (writeConflicts) {
+        skipped.push(...Array.from({ length: writeConflicts }, () => ({ row: 0, reason: "Already exists in CRM" })));
+      }
       skippedByReason = summarizeSkippedRows(skipped);
-      if (!inserted.count) return { status: "empty" as const, imported: 0, skipped: skipped.length, skippedRows: skipped.slice(0, 25), skippedByReason };
-      await event(db, { actorId, type: ActivityType.LEAD_IMPORTED, metadata: { source, imported: inserted.count, skipped: skipped.length } });
-      return { status: "ok" as const, imported: inserted.count, skipped: skipped.length, skippedRows: skipped.slice(0, 25), skippedByReason };
+      if (!inserted.count) {
+        return { status: "empty" as const, imported: 0, skipped: skipped.length, skippedRows: skipped.slice(0, 25), skippedByReason };
+      }
+
+      const created = await db.lead.findMany({
+        where: { phoneKey: { in: leads.map((l) => l.phoneKey) } },
+        select: { id: true, phoneKey: true }
+      });
+      if (created.length) {
+        await db.leadPhoneIndex.createMany({
+          data: created.map((row) => ({ phoneKey: row.phoneKey, kind: LeadKind.LOCAL, leadId: row.id })),
+          skipDuplicates: true
+        });
+      }
+
+      await event(db, {
+        actorId,
+        type: ActivityType.LEAD_IMPORTED,
+        metadata: { source, imported: inserted.count, skipped: skipped.length }
+      });
+      return {
+        status: "ok" as const,
+        imported: inserted.count,
+        skipped: skipped.length,
+        skippedRows: skipped.slice(0, 25),
+        skippedByReason
+      };
     });
   } finally {
     await removeUpload(file);
@@ -100,33 +176,62 @@ export async function importLeads({ file, actorId, claimActor = false, source }:
 }
 
 export async function claimLead({ leadId, actorId }: { leadId: string; actorId: string }) {
+  const ref = await resolveLeadRef(leadId);
+  if (!ref) return { status: "not-found" as const };
+
   return prisma.$transaction(async (db) => {
-    const claimed = await db.lead.updateMany({ where: { id: leadId, claimedById: null }, data: { claimedById: actorId, claimedAt: new Date() } });
+    if (ref.kind === LeadKind.LOCAL) {
+      const claimed = await db.lead.updateMany({
+        where: { id: ref.id, claimedById: null },
+        data: { claimedById: actorId, claimedAt: new Date() }
+      });
+      if (claimed.count === 0) {
+        const lead = await db.lead.findUnique({ where: { id: ref.id }, select: { id: true, claimedById: true } });
+        return lead ? { status: "already-claimed" as const, claimedById: lead.claimedById } : { status: "not-found" as const };
+      }
+      await event(db, { actorId, leadKind: LeadKind.LOCAL, leadId: ref.id, type: ActivityType.LEAD_CLAIMED });
+      const lead = await db.lead.findUniqueOrThrow({ where: { id: ref.id }, include: localLeadInclude });
+      return { status: "ok" as const, lead: localLeadToView(lead) };
+    }
+
+    const claimed = await db.registryLead.updateMany({
+      where: { id: ref.id, claimedById: null },
+      data: { claimedById: actorId, claimedAt: new Date() }
+    });
     if (claimed.count === 0) {
-      const lead = await db.lead.findUnique({ where: { id: leadId }, select: { id: true, claimedById: true } });
+      const lead = await db.registryLead.findUnique({ where: { id: ref.id }, select: { id: true, claimedById: true } });
       return lead ? { status: "already-claimed" as const, claimedById: lead.claimedById } : { status: "not-found" as const };
     }
-    await event(db, { actorId, leadId, type: ActivityType.LEAD_CLAIMED });
-    return { status: "ok" as const, lead: await db.lead.findUniqueOrThrow({ where: { id: leadId }, include: leadDetailInclude }) };
+    await event(db, { actorId, leadKind: LeadKind.REGISTRY, leadId: ref.id, type: ActivityType.LEAD_CLAIMED });
+    const lead = await db.registryLead.findUniqueOrThrow({ where: { id: ref.id }, include: registryLeadInclude });
+    return { status: "ok" as const, lead: registryLeadToView(lead) };
   });
 }
 
 export async function requestClaimTransfer({ leadId, actorId, reason }: { leadId: string; actorId: string; reason: string }) {
-  return prisma.$transaction(async (db) => {
-    const lead = await db.lead.findUnique({ where: { id: leadId }, select: { id: true, claimedById: true } });
-    if (!lead) return { status: "not-found" as const };
-    if (!lead.claimedById) return { status: "unclaimed" as const };
-    if (lead.claimedById === actorId) return { status: "already-claimer" as const };
+  const shell = await loadWorkflowShell(leadId);
+  if (!shell) return { status: "not-found" as const };
+  if (!shell.claimedById) return { status: "unclaimed" as const };
+  if (shell.claimedById === actorId) return { status: "already-claimer" as const };
 
+  return prisma.$transaction(async (db) => {
     const pending = await db.claimTransferRequest.findFirst({
-      where: { leadId, status: ClaimRequestStatus.PENDING },
+      where: { leadKind: shell.kind, leadId: shell.id, status: ClaimRequestStatus.PENDING },
       select: { id: true }
     });
     if (pending) return { status: "pending-exists" as const, requestId: pending.id };
 
     try {
-      const request = await db.claimTransferRequest.create({ data: { leadId, requestedById: actorId, reason } });
-      await event(db, { actorId, leadId, type: ActivityType.CLAIM_TRANSFER_REQUESTED, metadata: { requestId: request.id, currentClaimerId: lead.claimedById } });
+      const request = await db.claimTransferRequest.create({
+        data: { leadKind: shell.kind, leadId: shell.id, requestedById: actorId, reason }
+      });
+      await event(db, {
+        actorId,
+        leadKind: shell.kind,
+        leadId: shell.id,
+        type: ActivityType.CLAIM_TRANSFER_REQUESTED,
+        metadata: { requestId: request.id, currentClaimerId: shell.claimedById }
+      });
       return { status: "ok" as const, request };
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
@@ -137,45 +242,96 @@ export async function requestClaimTransfer({ leadId, actorId, reason }: { leadId
   });
 }
 
-export async function resolveClaimTransfer({ requestId, adminId, approve }: { requestId: string; adminId: string; approve: boolean }) {
+export async function resolveClaimTransfer({
+  requestId,
+  adminId,
+  approve
+}: {
+  requestId: string;
+  adminId: string;
+  approve: boolean;
+}) {
   return prisma.$transaction(async (db) => {
-    const request = await db.claimTransferRequest.findUnique({ where: { id: requestId }, include: { lead: true } });
+    const request = await db.claimTransferRequest.findUnique({ where: { id: requestId } });
     if (!request || request.status !== ClaimRequestStatus.PENDING) return null;
     const status = approve ? ClaimRequestStatus.APPROVED : ClaimRequestStatus.REJECTED;
-    await db.claimTransferRequest.update({ where: { id: requestId }, data: { status, resolvedById: adminId, resolvedAt: new Date() } });
-    if (approve) {
-      await db.lead.update({ where: { id: request.leadId }, data: { claimedById: request.requestedById, claimedAt: new Date() } });
-    }
-    await event(db, { actorId: adminId, leadId: request.leadId, type: approve ? ActivityType.CLAIM_TRANSFER_APPROVED : ActivityType.CLAIM_TRANSFER_REJECTED, metadata: { requestId, requestedById: request.requestedById } });
-    return db.lead.findUniqueOrThrow({ where: { id: request.leadId }, include: leadDetailInclude });
-  });
-}
-
-export async function setLeadClaim({ leadId, adminId, salesUserId }: { leadId: string; adminId: string; salesUserId: string | null }) {
-  return prisma.$transaction(async (db) => {
-    const lead = await db.lead.findUnique({ where: { id: leadId }, select: { id: true } });
-    if (!lead) return null;
-    const updated = await db.lead.update({
-      where: { id: leadId },
-      data: { claimedById: salesUserId, claimedAt: salesUserId ? new Date() : null },
-      include: leadDetailInclude
+    await db.claimTransferRequest.update({
+      where: { id: requestId },
+      data: { status, resolvedById: adminId, resolvedAt: new Date() }
     });
-    await event(db, { actorId: adminId, leadId, type: ActivityType.LEAD_CLAIMED, metadata: { claimedById: salesUserId, source: "admin" } });
-    return updated;
+    if (approve) {
+      if (request.leadKind === LeadKind.LOCAL) {
+        await db.lead.update({
+          where: { id: request.leadId },
+          data: { claimedById: request.requestedById, claimedAt: new Date() }
+        });
+      } else {
+        await db.registryLead.update({
+          where: { id: request.leadId },
+          data: { claimedById: request.requestedById, claimedAt: new Date() }
+        });
+      }
+    }
+    await event(db, {
+      actorId: adminId,
+      leadKind: request.leadKind,
+      leadId: request.leadId,
+      type: approve ? ActivityType.CLAIM_TRANSFER_APPROVED : ActivityType.CLAIM_TRANSFER_REJECTED,
+      metadata: { requestId, requestedById: request.requestedById }
+    });
+    return getLeadViewById(request.leadId);
   });
 }
 
-/**
- * Ownership policy (sales mutations):
- * - Phase, appointment, follow-up, and call notes require the actor to be the current claimer.
- * - Unclaimed leads and other reps' leads cannot be mutated; claim or request a transfer first.
- * - Admins use setLeadClaim / updateLead / updateLeadPhase without this claimer check (separate entry points).
- */
-async function requireClaimer(db: Db, leadId: string, actorId: string) {
-  const lead = await db.lead.findUnique({ where: { id: leadId }, select: { id: true, claimedById: true, phase: true } });
-  if (!lead) return { status: "not-found" as const };
-  if (lead.claimedById !== actorId) return { status: "forbidden" as const, claimedById: lead.claimedById };
-  return { status: "ok" as const, lead };
+export async function setLeadClaim({
+  leadId,
+  adminId,
+  salesUserId
+}: {
+  leadId: string;
+  adminId: string;
+  salesUserId: string | null;
+}) {
+  const ref = await resolveLeadRef(leadId);
+  if (!ref) return null;
+
+  return prisma.$transaction(async (db) => {
+    if (ref.kind === LeadKind.LOCAL) {
+      const updated = await db.lead.update({
+        where: { id: ref.id },
+        data: { claimedById: salesUserId, claimedAt: salesUserId ? new Date() : null },
+        include: localLeadInclude
+      });
+      await event(db, {
+        actorId: adminId,
+        leadKind: LeadKind.LOCAL,
+        leadId: ref.id,
+        type: ActivityType.LEAD_CLAIMED,
+        metadata: { claimedById: salesUserId, source: "admin" }
+      });
+      return localLeadToView(updated);
+    }
+    const updated = await db.registryLead.update({
+      where: { id: ref.id },
+      data: { claimedById: salesUserId, claimedAt: salesUserId ? new Date() : null },
+      include: registryLeadInclude
+    });
+    await event(db, {
+      actorId: adminId,
+      leadKind: LeadKind.REGISTRY,
+      leadId: ref.id,
+      type: ActivityType.LEAD_CLAIMED,
+      metadata: { claimedById: salesUserId, source: "admin" }
+    });
+    return registryLeadToView(updated);
+  });
+}
+
+async function requireClaimer(leadId: string, actorId: string) {
+  const shell = await loadWorkflowShell(leadId);
+  if (!shell) return { status: "not-found" as const };
+  if (shell.claimedById !== actorId) return { status: "forbidden" as const, claimedById: shell.claimedById };
+  return { status: "ok" as const, shell };
 }
 
 export async function updateLeadPhase({
@@ -189,32 +345,51 @@ export async function updateLeadPhase({
   actorId: string;
   phase: LeadPhase;
   creditedUserId?: string | null;
-  /** When true (sales path), only the claimer may change phase. */
   requireOwnership?: boolean;
 }) {
+  if (requireOwnership) {
+    const ownership = await requireClaimer(leadId, actorId);
+    if (ownership.status === "not-found") return { status: "not-found" as const };
+    if (ownership.status === "forbidden") return { status: "forbidden" as const, claimedById: ownership.claimedById };
+  }
+
+  const ref = await resolveLeadRef(leadId);
+  if (!ref) return { status: "not-found" as const };
+
   return prisma.$transaction(async (db) => {
-    if (requireOwnership) {
-      const ownership = await requireClaimer(db, leadId, actorId);
-      if (ownership.status === "not-found") return { status: "not-found" as const };
-      if (ownership.status === "forbidden") return { status: "forbidden" as const, claimedById: ownership.claimedById };
-    } else {
-      const lead = await db.lead.findUnique({ where: { id: leadId } });
-      if (!lead) return { status: "not-found" as const };
+    if (ref.kind === LeadKind.LOCAL) {
+      const existing = await db.lead.findUnique({ where: { id: ref.id } });
+      if (!existing) return { status: "not-found" as const };
+      const updated = await db.lead.update({ where: { id: ref.id }, data: { phase }, include: localLeadInclude });
+      await event(db, {
+        actorId,
+        leadKind: LeadKind.LOCAL,
+        leadId: ref.id,
+        type: ActivityType.PHASE_CHANGED,
+        fromPhase: existing.phase,
+        toPhase: phase,
+        creditedUserId: phase === LeadPhase.CLOSED_WON ? creditedUserId || actorId : null
+      });
+      return { status: "ok" as const, lead: localLeadToView(updated) };
     }
 
-    const existing = await db.lead.findUnique({ where: { id: leadId } });
+    const existing = await db.registryLead.findUnique({ where: { id: ref.id } });
     if (!existing) return { status: "not-found" as const };
-
-    const updated = await db.lead.update({ where: { id: leadId }, data: { phase }, include: leadDetailInclude });
+    const updated = await db.registryLead.update({
+      where: { id: ref.id },
+      data: { phase },
+      include: registryLeadInclude
+    });
     await event(db, {
       actorId,
-      leadId,
+      leadKind: LeadKind.REGISTRY,
+      leadId: ref.id,
       type: ActivityType.PHASE_CHANGED,
       fromPhase: existing.phase,
       toPhase: phase,
       creditedUserId: phase === LeadPhase.CLOSED_WON ? creditedUserId || actorId : null
     });
-    return { status: "ok" as const, lead: updated };
+    return { status: "ok" as const, lead: registryLeadToView(updated) };
   });
 }
 
@@ -229,17 +404,19 @@ export async function addCallNote({
   note: string;
   requireOwnership?: boolean;
 }) {
+  if (requireOwnership) {
+    const ownership = await requireClaimer(leadId, actorId);
+    if (ownership.status === "not-found") return { status: "not-found" as const };
+    if (ownership.status === "forbidden") return { status: "forbidden" as const, claimedById: ownership.claimedById };
+  }
+  const ref = await resolveLeadRef(leadId);
+  if (!ref) return { status: "not-found" as const };
+
   return prisma.$transaction(async (db) => {
-    if (requireOwnership) {
-      const ownership = await requireClaimer(db, leadId, actorId);
-      if (ownership.status === "not-found") return { status: "not-found" as const };
-      if (ownership.status === "forbidden") return { status: "forbidden" as const, claimedById: ownership.claimedById };
-    } else {
-      const lead = await db.lead.findUnique({ where: { id: leadId }, select: { id: true } });
-      if (!lead) return { status: "not-found" as const };
-    }
-    await event(db, { actorId, leadId, type: ActivityType.CALL_NOTE, note });
-    return { status: "ok" as const, lead: await db.lead.findUniqueOrThrow({ where: { id: leadId }, include: leadDetailInclude }) };
+    await event(db, { actorId, leadKind: ref.kind, leadId: ref.id, type: ActivityType.CALL_NOTE, note });
+    const view = await getLeadViewById(ref.id);
+    if (!view) return { status: "not-found" as const };
+    return { status: "ok" as const, lead: view };
   });
 }
 
@@ -256,51 +433,74 @@ export async function updateLeadSchedule({
   value: string | null | undefined;
   requireOwnership?: boolean;
 }) {
+  if (requireOwnership) {
+    const ownership = await requireClaimer(leadId, actorId);
+    if (ownership.status === "not-found") return { status: "not-found" as const };
+    if (ownership.status === "forbidden") return { status: "forbidden" as const, claimedById: ownership.claimedById };
+  }
+  const ref = await resolveLeadRef(leadId);
+  if (!ref) return { status: "not-found" as const };
   const date = parseOptionalDate(value);
+
   return prisma.$transaction(async (db) => {
-    if (requireOwnership) {
-      const ownership = await requireClaimer(db, leadId, actorId);
-      if (ownership.status === "not-found") return { status: "not-found" as const };
-      if (ownership.status === "forbidden") return { status: "forbidden" as const, claimedById: ownership.claimedById };
-    } else {
-      const lead = await db.lead.findUnique({ where: { id: leadId }, select: { id: true } });
-      if (!lead) return { status: "not-found" as const };
+    if (ref.kind === LeadKind.LOCAL) {
+      const updated = await db.lead.update({
+        where: { id: ref.id },
+        data: kind === "appointment" ? { appointmentDate: date } : { nextFollowUpAt: date },
+        include: localLeadInclude
+      });
+      await event(db, {
+        actorId,
+        leadKind: LeadKind.LOCAL,
+        leadId: ref.id,
+        type: kind === "appointment" ? ActivityType.APPOINTMENT_SET : ActivityType.FOLLOW_UP_SET,
+        metadata: { value: date }
+      });
+      return { status: "ok" as const, lead: localLeadToView(updated) };
     }
-    const updated = await db.lead.update({
-      where: { id: leadId },
+    const updated = await db.registryLead.update({
+      where: { id: ref.id },
       data: kind === "appointment" ? { appointmentDate: date } : { nextFollowUpAt: date },
-      include: leadDetailInclude
+      include: registryLeadInclude
     });
     await event(db, {
       actorId,
-      leadId,
+      leadKind: LeadKind.REGISTRY,
+      leadId: ref.id,
       type: kind === "appointment" ? ActivityType.APPOINTMENT_SET : ActivityType.FOLLOW_UP_SET,
       metadata: { value: date }
     });
-    return { status: "ok" as const, lead: updated };
+    return { status: "ok" as const, lead: registryLeadToView(updated) };
   });
 }
 
 export async function updateLead({ leadId, input, actorId }: { leadId: string; input: LeadInput; actorId: string }) {
+  const ref = await resolveLeadRef(leadId);
+  if (!ref) return { status: "not-found" as const };
+  if (ref.kind === LeadKind.REGISTRY) {
+    return { status: "invalid" as const, message: "Registry leads are directory-backed and cannot be edited here" };
+  }
+
   const licenceNumber = input.licenceNumber?.trim() || null;
   const pKey = phoneKey(input.phoneNumber);
   const lKey = licenceKey(licenceNumber);
 
   return prisma.$transaction(async (db) => {
-    const existing = await db.lead.findUnique({ where: { id: leadId } });
+    const existing = await db.lead.findUnique({ where: { id: ref.id } });
     if (!existing) return { status: "not-found" as const };
 
-    const duplicate = await db.lead.findFirst({
-      where: {
-        id: { not: leadId },
-        phoneKey: pKey
-      },
-      select: { id: true, fullName: true, phoneNumber: true, licenceNumber: true }
-    });
-    if (duplicate) return { status: "duplicate" as const, duplicate };
+    if (pKey !== existing.phoneKey) {
+      const taken = await db.leadPhoneIndex.findUnique({ where: { phoneKey: pKey } });
+      if (taken && taken.leadId !== ref.id) {
+        return {
+          status: "duplicate" as const,
+          duplicate: { id: taken.leadId, fullName: "", phoneNumber: input.phoneNumber, licenceNumber: null }
+        };
+      }
+    }
 
     const updated = await db.lead.update({
-      where: { id: leadId },
+      where: { id: ref.id },
       data: {
         fullName: input.fullName.trim(),
         phoneNumber: input.phoneNumber.trim(),
@@ -318,19 +518,28 @@ export async function updateLead({ leadId, input, actorId }: { leadId: string; i
         houseNumber: input.houseNumber?.trim() || null,
         businessTelephone: input.businessTelephone?.trim() || null
       },
-      include: leadDetailInclude
+      include: localLeadInclude
     });
 
-    // Administrative field edits must not inflate call-note metrics.
+    if (pKey !== existing.phoneKey) {
+      await rekeyPhone(db, {
+        oldPhoneKey: existing.phoneKey,
+        newPhoneKey: pKey,
+        kind: LeadKind.LOCAL,
+        leadId: ref.id
+      });
+    }
+
     await event(db, {
       actorId,
-      leadId,
+      leadKind: LeadKind.LOCAL,
+      leadId: ref.id,
       type: ActivityType.LEAD_UPDATED,
       note: "Lead details updated",
       metadata: { source: "admin-edit" }
     });
 
-    return { status: "ok" as const, lead: updated };
+    return { status: "ok" as const, lead: localLeadToView(updated) };
   });
 }
 
@@ -344,11 +553,11 @@ export async function bulkSetLeadClaims({
   salesUserId: string | null;
 }) {
   const uniqueIds = [...new Set(leadIds.filter(Boolean))];
-  if (!uniqueIds.length) return { updated: 0, leads: [] as Awaited<ReturnType<typeof setLeadClaim>>[] };
+  if (!uniqueIds.length) return { updated: 0, leads: [] as LeadView[] };
 
-  const results = [];
-  for (const leadId of uniqueIds) {
-    const lead = await setLeadClaim({ leadId, adminId, salesUserId });
+  const results: LeadView[] = [];
+  for (const id of uniqueIds) {
+    const lead = await setLeadClaim({ leadId: id, adminId, salesUserId });
     if (lead) results.push(lead);
   }
   return { updated: results.length, leads: results };
@@ -366,14 +575,26 @@ export async function bulkUpdateLeadPhases({
   creditedUserId?: string | null;
 }) {
   const uniqueIds = [...new Set(leadIds.filter(Boolean))];
-  if (!uniqueIds.length) return { updated: 0, leads: [] as unknown[] };
+  if (!uniqueIds.length) return { updated: 0, leads: [] as LeadView[] };
 
-  const results = [];
-  for (const leadId of uniqueIds) {
-    const result = await updateLeadPhase({ leadId, actorId: adminId, phase, creditedUserId, requireOwnership: false });
+  const results: LeadView[] = [];
+  for (const id of uniqueIds) {
+    const result = await updateLeadPhase({
+      leadId: id,
+      actorId: adminId,
+      phase,
+      creditedUserId,
+      requireOwnership: false
+    });
     if (result.status === "ok") results.push(result.lead);
   }
   return { updated: results.length, leads: results };
 }
 
-export type ImportResult = { status: "ok" | "empty"; imported: number; skipped: number; skippedRows: SkippedLeadRow[]; skippedByReason: Array<{ reason: string; count: number }> };
+export type ImportResult = {
+  status: "ok" | "empty";
+  imported: number;
+  skipped: number;
+  skippedRows: SkippedLeadRow[];
+  skippedByReason: Array<{ reason: string; count: number }>;
+};

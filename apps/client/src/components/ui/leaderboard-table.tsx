@@ -13,7 +13,7 @@ export function LeaderboardTable({ data, highlightUserId }: LeaderboardTableProp
   }
 
   return (
-    <div className="overflow-x-auto">
+    <div className="overflow-x-auto" data-scrollbar="thin">
       <table className="w-full text-[11px]">
         <thead>
           <tr className="border-b border-separator text-muted uppercase tracking-wider">

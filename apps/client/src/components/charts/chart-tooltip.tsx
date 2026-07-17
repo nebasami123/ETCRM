@@ -25,7 +25,11 @@ export function ChartTooltip({ active, payload, label }: ChartTooltipProps) {
               style={{ backgroundColor: item.color || item.fill }}
             />
             <span className="text-muted font-medium">{item.name}:</span>
-            <span className="font-extrabold text-foreground">{item.value}</span>
+            <span className="font-extrabold text-foreground">
+              {typeof item.value === "number" && Number.isFinite(item.value)
+                ? item.value.toLocaleString("en-US")
+                : item.value}
+            </span>
           </div>
         ))}
       </div>

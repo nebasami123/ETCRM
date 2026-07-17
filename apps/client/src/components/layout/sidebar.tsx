@@ -13,6 +13,7 @@ import {
   ListTodo,
   Layers3,
   TrendingUp,
+  Megaphone,
   X
 } from "lucide-react";
 import { useAuth } from "../../hooks/use-auth";
@@ -66,6 +67,7 @@ export function Sidebar({
   const adminNavItems: NavItem[] = [
     { icon: LayoutDashboard, label: "Overview", to: "/admin" },
     { icon: Users, label: "Leads", to: "/admin/leads" },
+    { icon: Megaphone, label: "Campaigns", to: "/admin/campaigns" },
     { icon: UserCog, label: "Team", to: "/admin/team" },
     { icon: Target, label: "Quotas", to: "/admin/quotas" },
     { icon: TrendingUp, label: "Performance", to: "/admin/performance" },
@@ -75,6 +77,7 @@ export function Sidebar({
 
   const salesNavItems: NavItem[] = [
     { icon: LayoutDashboard, label: "Overview", to: "/sales" },
+    { icon: Megaphone, label: "Campaigns", to: "/sales/campaigns" },
     { icon: Kanban, label: "My Leads", to: "/sales/leads" },
     { icon: Layers3, label: "Lead Pool", to: "/sales/lead-pool" },
     { icon: ListTodo, label: "Planner", to: "/sales/planner" },

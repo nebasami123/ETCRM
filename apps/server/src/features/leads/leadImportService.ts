@@ -151,12 +151,12 @@ export async function prepareLeadImport(client: DbClient, candidates: LeadImport
   }
 
   const existing = valid.length
-    ? await client.lead.findMany({
+    ? await client.leadPhoneIndex.findMany({
         where: { phoneKey: { in: [...phoneKeys] } },
         select: { phoneKey: true }
       })
     : [];
-  const existingPhones = new Set(existing.map((lead) => lead.phoneKey));
+  const existingPhones = new Set(existing.map((row) => row.phoneKey));
   const leads = valid.flatMap((candidate) => {
     const lead = candidate.lead;
     if (existingPhones.has(lead.phoneKey)) {

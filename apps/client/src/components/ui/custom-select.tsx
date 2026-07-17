@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { ChevronDown, Check } from "lucide-react";
+import { ChevronDown, Check, Loader2 } from "lucide-react";
 
 interface Option {
   value: string;
@@ -12,6 +12,7 @@ interface CustomSelectProps {
   options: Option[];
   placeholder?: string;
   disabled?: boolean;
+  loading?: boolean;
   className?: string;
   triggerClassName?: string;
   size?: "sm" | "md";
@@ -24,6 +25,7 @@ export function CustomSelect({
   options,
   placeholder = "Select...",
   disabled = false,
+  loading = false,
   className = "",
   triggerClassName = "",
   size = "md",
@@ -32,7 +34,7 @@ export function CustomSelect({
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  const selectedOption = options.find((opt) => opt.value === value);
+  const selectedOption = options.find((opt) => opt.value === (value ?? ""));
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -62,7 +64,8 @@ export function CustomSelect({
     md: "px-3 py-2 text-xs h-9 w-full"
   };
 
-  const buttonStyleClass = triggerClassName || "border-field-border bg-field-background text-field-foreground focus:border-accent";
+  const buttonStyleClass =
+    triggerClassName || "border-field-border bg-field-background text-field-foreground focus:border-accent";
 
   return (
     <div ref={containerRef} className={`relative inline-block ${size === "md" ? "w-full" : ""} ${className}`}>
@@ -71,32 +74,48 @@ export function CustomSelect({
         onClick={handleToggle}
         disabled={disabled}
         aria-label={ariaLabel}
+        aria-busy={loading || undefined}
         className={`flex items-center justify-between rounded-lg border focus:outline-none disabled:opacity-50 text-left cursor-pointer transition-colors duration-160 ${buttonStyleClass} ${sizeClasses[size]}`}
       >
-
-        <span className="truncate mr-2">
-          {selectedOption ? selectedOption.label : placeholder}
-        </span>
-        <ChevronDown className={`h-3.5 w-3.5 text-muted shrink-0 transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`} />
+        <span className="truncate mr-2">{selectedOption ? selectedOption.label : placeholder}</span>
+        {loading ? (
+          <Loader2 className="h-3.5 w-3.5 text-muted shrink-0 animate-spin" />
+        ) : (
+          <ChevronDown
+            className={`h-3.5 w-3.5 text-muted shrink-0 transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`}
+          />
+        )}
       </button>
 
       {isOpen && (
         <div className="absolute left-0 right-0 z-50 mt-1 max-h-60 overflow-y-auto rounded-lg border border-separator bg-overlay p-1 shadow-overlay backdrop-blur-md animate-in fade-in slide-in-from-top-1 duration-150">
-          {options.map((opt) => (
-            <button
-              key={opt.value}
-              type="button"
-              onClick={() => handleSelect(opt.value)}
-              className={`flex w-full items-center justify-between rounded-md px-2.5 py-1.5 text-left text-xs transition-colors duration-100 cursor-pointer ${
-                opt.value === value
-                  ? "bg-accent/10 text-accent font-semibold"
-                  : "text-foreground hover:bg-default/20"
-              }`}
-            >
-              <span className="truncate mr-2">{opt.label}</span>
-              {opt.value === value && <Check className="h-3.5 w-3.5 text-accent shrink-0" />}
-            </button>
-          ))}
+          {loading ? (
+            <div className="flex items-center justify-center gap-2 px-2.5 py-4 text-xs text-muted">
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              Loading options…
+            </div>
+          ) : options.length === 0 ? (
+            <div className="px-2.5 py-4 text-center text-xs text-muted">No options</div>
+          ) : (
+            options.map((opt) => {
+              const isSelected = opt.value === (value ?? "");
+              return (
+                <button
+                  key={`${opt.value}::${opt.label}`}
+                  type="button"
+                  onClick={() => handleSelect(opt.value)}
+                  className={`flex w-full items-center justify-between rounded-md px-2.5 py-1.5 text-left text-xs transition-colors duration-100 cursor-pointer ${
+                    isSelected
+                      ? "bg-accent/10 text-accent font-semibold"
+                      : "text-foreground hover:bg-default/20"
+                  }`}
+                >
+                  <span className="truncate mr-2">{opt.label}</span>
+                  {isSelected && <Check className="h-3.5 w-3.5 text-accent shrink-0" />}
+                </button>
+              );
+            })
+          )}
         </div>
       )}
     </div>

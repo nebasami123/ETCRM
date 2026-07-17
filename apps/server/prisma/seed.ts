@@ -21,6 +21,9 @@ async function main() {
   await prisma.activityEvent.deleteMany({});
   await prisma.claimTransferRequest.deleteMany({});
   await prisma.quota.deleteMany({});
+  await prisma.campaignLead.deleteMany({});
+  await prisma.campaignMember.deleteMany({});
+  await prisma.campaign.deleteMany({});
   await prisma.lead.deleteMany({});
   await prisma.session.deleteMany({});
   await prisma.account.deleteMany({});

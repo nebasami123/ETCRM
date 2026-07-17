@@ -50,14 +50,29 @@ async function ensureUsers() {
 
 async function wipeTestLeads() {
   await prisma.claimTransferRequest.deleteMany({
-    where: { OR: [{ requestedById: { in: Object.values(ids) } }, { lead: { createdById: { in: Object.values(ids) } } }] }
+    where: { requestedById: { in: Object.values(ids) } }
   });
   await prisma.activityEvent.deleteMany({ where: { actorId: { in: Object.values(ids) } } });
-  await prisma.lead.deleteMany({
-    where: {
-      OR: [{ createdById: { in: Object.values(ids) } }, { claimedById: { in: Object.values(ids) } }, { phoneKey: { startsWith: "999" } }]
-    }
-  });
+  const localIds = (
+    await prisma.lead.findMany({
+      where: {
+        OR: [{ createdById: { in: Object.values(ids) } }, { claimedById: { in: Object.values(ids) } }, { phoneKey: { startsWith: "999" } }]
+      },
+      select: { id: true, phoneKey: true }
+    })
+  );
+  const regIds = (
+    await prisma.registryLead.findMany({
+      where: {
+        OR: [{ createdById: { in: Object.values(ids) } }, { claimedById: { in: Object.values(ids) } }, { phoneKey: { startsWith: "999" } }]
+      },
+      select: { id: true, phoneKey: true }
+    })
+  );
+  const phones = [...localIds, ...regIds].map((r) => r.phoneKey);
+  if (phones.length) await prisma.leadPhoneIndex.deleteMany({ where: { phoneKey: { in: phones } } });
+  if (localIds.length) await prisma.lead.deleteMany({ where: { id: { in: localIds.map((r) => r.id) } } });
+  if (regIds.length) await prisma.registryLead.deleteMany({ where: { id: { in: regIds.map((r) => r.id) } } });
 }
 
 beforeAll(async () => {

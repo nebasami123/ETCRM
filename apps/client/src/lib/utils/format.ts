@@ -4,6 +4,7 @@ export const phaseLabels: Record<LeadPhase, string> = {
   NEW: "New",
   CONTACTED: "Contacted",
   FOLLOW_UP: "Follow-Up",
+  N_A: "N/A",
   CLOSED_WON: "Closed-Won",
   CLOSED_LOST: "Closed-Lost"
 };
@@ -18,6 +19,14 @@ export function todayInputValue() {
 export function formatDate(value: DateValue) {
   if (!value) return "None";
   return new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric", year: "numeric" }).format(new Date(value));
+}
+
+/** Format capital / money with thousand separators (e.g. 30,000,000,000,000). */
+export function formatCapital(value?: number | string | null) {
+  if (value == null || value === "") return "—";
+  const n = typeof value === "number" ? value : Number(String(value).replace(/,/g, ""));
+  if (!Number.isFinite(n)) return String(value);
+  return new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }).format(n);
 }
 
 export function formatDateTime(value: DateValue) {

@@ -134,7 +134,7 @@ export function SalesPlanner() {
         </button>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-7">
         {(
           [
             ["Open tasks", data?.stats.openTasks ?? 0, "text-accent"],
@@ -142,7 +142,12 @@ export function SalesPlanner() {
             ["Follow-ups", data?.stats.followUps ?? 0, "text-warning"],
             ["Overdue", data?.stats.overdueFollowUps ?? 0, "text-danger"],
             ["Reminders", data?.stats.reminders ?? 0, "text-blue-500"],
-            ["Calls", `${data?.stats.callsCompleted ?? 0}/${data?.stats.callsTarget ?? 0}`, "text-foreground"]
+            ["Calls", `${data?.stats.callsCompleted ?? 0}/${data?.stats.callsTarget ?? 0}`, "text-foreground"],
+            [
+              "Campaign contacts",
+              `${data?.stats.campaignContactCompleted ?? 0}/${data?.stats.campaignContactTarget ?? 0}`,
+              "text-accent"
+            ]
           ] as const
         ).map(([labelText, value, tone]) => (
           <div key={String(labelText)} className="rounded-xl border border-separator bg-surface px-4 py-3">
@@ -151,6 +156,38 @@ export function SalesPlanner() {
           </div>
         ))}
       </div>
+
+      {data?.campaignGoals && data.campaignGoals.length > 0 ? (
+        <section className="rounded-xl border border-separator bg-surface p-4">
+          <h2 className="text-xs font-bold uppercase tracking-wider text-muted">Today&apos;s campaign goals</h2>
+          <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+            {data.campaignGoals.map((goal) => {
+              const pct = goal.target > 0 ? Math.min(100, Math.round((goal.completed / goal.target) * 100)) : 0;
+              return (
+                <div key={goal.campaignId} className="rounded-lg border border-separator bg-default/10 px-3 py-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="truncate text-xs font-bold text-foreground">{goal.name}</p>
+                      {goal.label ? (
+                        <span className="mt-0.5 inline-block rounded bg-accent/10 px-1.5 py-0.5 text-[10px] font-bold text-accent">
+                          {goal.label}
+                        </span>
+                      ) : null}
+                    </div>
+                    <p className="shrink-0 text-sm font-black text-foreground">
+                      {goal.completed}/{goal.target}
+                    </p>
+                  </div>
+                  <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-default">
+                    <div className="h-full rounded-full bg-accent" style={{ width: `${pct}%` }} />
+                  </div>
+                  <p className="mt-1 text-[10px] text-muted">Leads contacted today toward this campaign</p>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      ) : null}
 
       <div className="grid gap-5 xl:grid-cols-[1fr_360px]">
         <section className="overflow-hidden rounded-xl border border-separator bg-surface">

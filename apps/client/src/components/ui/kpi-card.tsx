@@ -41,6 +41,8 @@ export function KPICard({ label, value, tone = "default" }: KPICardProps) {
   };
 
   const current = toneStyles[tone] || toneStyles.default;
+  const displayValue =
+    typeof value === "number" && Number.isFinite(value) ? value.toLocaleString("en-US") : value;
 
   return (
     <Card 
@@ -51,7 +53,7 @@ export function KPICard({ label, value, tone = "default" }: KPICardProps) {
       <div className={`absolute -right-6 -bottom-6 w-20 h-20 rounded-full ${current.glow} blur-xl pointer-events-none group-hover:scale-170 transition-all duration-500 ease-out-smooth`} />
 
       <p className="text-[11px] font-bold uppercase tracking-wider text-muted select-none">{label}</p>
-      <p className={`mt-2.5 text-3xl font-extrabold ${current.text} leading-none tracking-tight`}>{value}</p>
+      <p className={`mt-2.5 text-3xl font-extrabold ${current.text} leading-none tracking-tight`}>{displayValue}</p>
     </Card>
   );
 }

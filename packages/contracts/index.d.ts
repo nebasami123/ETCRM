@@ -21,7 +21,7 @@ export declare const paginationSchema: z.ZodObject<{
   pageSize: z.ZodDefault<z.ZodNumber>;
 }>;
 
-export declare const leadPhases: readonly ["NEW", "CONTACTED", "FOLLOW_UP", "CLOSED_WON", "CLOSED_LOST"];
+export declare const leadPhases: readonly ["NEW", "CONTACTED", "FOLLOW_UP", "N_A", "CLOSED_WON", "CLOSED_LOST"];
 
 export declare const transferReasonSchema: z.ZodObject<{
   reason: z.ZodString;
@@ -34,7 +34,7 @@ export declare const bulkAssignSchema: z.ZodObject<{
 
 export declare const bulkPhaseSchema: z.ZodObject<{
   leadIds: z.ZodArray<z.ZodString>;
-  phase: z.ZodEnum<["NEW", "CONTACTED", "FOLLOW_UP", "CLOSED_WON", "CLOSED_LOST"]>;
+  phase: z.ZodEnum<["NEW", "CONTACTED", "FOLLOW_UP", "N_A", "CLOSED_WON", "CLOSED_LOST"]>;
   creditedUserId: z.ZodOptional<z.ZodNullable<z.ZodString>>;
 }>;
 

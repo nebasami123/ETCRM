@@ -12,6 +12,7 @@ const phaseColors: Record<LeadPhase, string> = {
   NEW: "var(--accent)",
   CONTACTED: "#3b82f6",
   FOLLOW_UP: "var(--warning)",
+  N_A: "var(--muted)",
   CLOSED_WON: "var(--success)",
   CLOSED_LOST: "var(--danger)"
 };
@@ -67,7 +68,7 @@ export function AdminOverview() {
     <div className="space-y-6">
       <div>
         <h2 className="text-xl font-bold tracking-tight text-foreground">Welcome back, Admin</h2>
-        <p className="text-xs text-muted mt-1">Full-pipeline operational snapshot (not limited to the current leads page).</p>
+        <p className="text-xs text-muted mt-1">How your team is doing across the full pipeline.</p>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
@@ -85,10 +86,23 @@ export function AdminOverview() {
         >
           <div className="absolute -right-6 -bottom-6 w-20 h-20 rounded-full bg-accent/3 opacity-0 group-hover:opacity-100 blur-xl pointer-events-none group-hover:scale-170 transition-all duration-500 ease-out-smooth" />
           <h3 className="text-xs font-bold text-foreground uppercase tracking-wider">Pipeline Shape</h3>
-          <p className="text-[11px] text-muted mt-1 mb-4">All leads grouped by pipeline phase (server aggregates).</p>
+          <p className="text-[11px] text-muted mt-1 mb-4">
+            How many leads sit in each stage of the pipeline.
+          </p>
           <div className="h-64 w-full">
             {phaseData.some((p) => p.value > 0) ? (
-              <BarChart data={phaseData} xKey="name" yKeys={["value"]} />
+              <BarChart
+                data={phaseData}
+                xKey="name"
+                yKeys={["value"]}
+                valueFormatter={(value) =>
+                  value >= 1_000_000
+                    ? `${(value / 1_000_000).toFixed(value >= 10_000_000 ? 0 : 1)}M`
+                    : value >= 1_000
+                      ? `${(value / 1_000).toFixed(value >= 10_000 ? 0 : 1)}K`
+                      : value.toLocaleString("en-US")
+                }
+              />
             ) : (
               <div className="flex h-full items-center justify-center text-xs text-muted">No data available</div>
             )}
@@ -101,14 +115,14 @@ export function AdminOverview() {
         >
           <div className="absolute -right-6 -bottom-6 w-20 h-20 rounded-full bg-blue-500/3 opacity-0 group-hover:opacity-100 blur-xl pointer-events-none group-hover:scale-170 transition-all duration-500 ease-out-smooth" />
           <h3 className="text-xs font-bold text-foreground uppercase tracking-wider">Activity Distribution</h3>
-          <p className="text-[11px] text-muted mt-1 mb-4">Types of actions across the full activity log.</p>
-          <div className="h-64 w-full flex flex-col justify-between">
+          <p className="text-[11px] text-muted mt-1 mb-3">Types of actions across the full activity log.</p>
+          <div className="flex min-h-64 w-full flex-col">
             {activityData.length > 0 ? (
               <>
-                <div className="h-44 w-full">
+                <div className="relative mx-auto h-44 w-full max-w-[220px] shrink-0 overflow-visible">
                   <DonutChart data={activityData} />
                 </div>
-                <div className="grid grid-cols-2 gap-2 mt-4 text-[10px]">
+                <div className="mt-3 grid grid-cols-2 gap-2 text-[10px]">
                   {activityData.map((item) => (
                     <div key={item.name} className="flex items-center gap-1.5 border border-separator rounded-lg px-2 py-1 bg-default/10">
                       <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: item.fill }} />
@@ -119,7 +133,7 @@ export function AdminOverview() {
                 </div>
               </>
             ) : (
-              <div className="flex h-full items-center justify-center text-xs text-muted">No activities logged yet</div>
+              <div className="flex flex-1 items-center justify-center text-xs text-muted">No activities logged yet</div>
             )}
           </div>
         </Card>

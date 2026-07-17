@@ -1,21 +1,41 @@
 import { useEffect, useState, useCallback } from "react";
-import type { Lead, LeadFilters, LeadPhase, Pagination, UserSummary, LeadFormData } from "../../../types";
+import type {
+  Lead,
+  LeadFilters,
+  LeadLocationFilterOptions,
+  LeadPhase,
+  Pagination,
+  UserSummary,
+  LeadFormData
+} from "../../../types";
 import { adminApi } from "../api";
 import { useToast } from "../../../hooks/use-toast";
 import { getErrorMessage } from "../../../lib/utils/format";
 import { formatLeadImportSummary } from "../../../lib/utils/lead-import";
 import { useDebouncedValue } from "../../../hooks/use-debounced-value";
+import { getCachedFilterOptions, peekFilterOptionsCache } from "../../../lib/filter-options-cache";
+
+const FILTER_OPTIONS_KEY = "admin:lead-filter-options";
 
 const initialLeadFilters: LeadFilters = {
   search: "",
   phase: "ALL",
   claimedById: "",
-  createdById: ""
+  createdById: "",
+  region: "",
+  subcity: "",
+  sector: [],
+  source: "ALL"
 };
 
 export function useAdminLeads() {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [salesUsers, setSalesUsers] = useState<UserSummary[]>([]);
+  const cachedOptions = peekFilterOptionsCache<LeadLocationFilterOptions>(FILTER_OPTIONS_KEY);
+  const [locationOptions, setLocationOptions] = useState<LeadLocationFilterOptions>(
+    cachedOptions || { regions: [], subcities: [], sectors: [] }
+  );
+  const [isFilterOptionsLoading, setIsFilterOptionsLoading] = useState(!cachedOptions);
   const [leadFilters, setLeadFilters] = useState<LeadFilters>(initialLeadFilters);
   const debouncedSearch = useDebouncedValue(leadFilters.search, 300);
   const [pagination, setPagination] = useState<Pagination>({ page: 1, pageSize: 20, total: 0, totalPages: 0 });
@@ -25,7 +45,7 @@ export function useAdminLeads() {
   const { success, danger } = useToast();
 
   // Depend on debouncedSearch only — not leadFilters.search — so typing does not refetch every keystroke.
-  const { phase, claimedById, createdById } = leadFilters;
+  const { phase, claimedById, createdById, region, subcity, sector, source } = leadFilters;
   const page = pagination.page;
   const pageSize = pagination.pageSize;
 
@@ -38,6 +58,10 @@ export function useAdminLeads() {
           phase,
           claimedById,
           createdById,
+          region,
+          subcity,
+          sector,
+          source: source === "ALL" ? "" : source,
           page,
           pageSize
         }),
@@ -52,19 +76,58 @@ export function useAdminLeads() {
     } finally {
       setIsLoading(false);
     }
-  }, [debouncedSearch, phase, claimedById, createdById, page, pageSize, danger]);
+  }, [debouncedSearch, phase, claimedById, createdById, region, subcity, sector, source, page, pageSize, danger]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const hasCache = Boolean(peekFilterOptionsCache(FILTER_OPTIONS_KEY));
+    if (!hasCache) setIsFilterOptionsLoading(true);
+    getCachedFilterOptions(FILTER_OPTIONS_KEY, () => adminApi.getLeadFilterOptions())
+      .then((options) => {
+        if (!cancelled) setLocationOptions(options);
+      })
+      .catch(() => {
+        if (!cancelled && !hasCache) setLocationOptions({ regions: [], subcities: [], sectors: [] });
+      })
+      .finally(() => {
+        if (!cancelled) setIsFilterOptionsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     loadLeads();
   }, [loadLeads]);
 
-  const updateLeadFilter = (field: keyof LeadFilters, value: string) => {
+  const updateLeadFilter = (field: keyof LeadFilters, value: string | string[]) => {
     setLeadFilters((prev) => ({
       ...prev,
-      [field]: field === "phase" ? (value as LeadPhase | "ALL") : value
+      [field]:
+        field === "phase"
+          ? (value as LeadPhase | "ALL")
+          : field === "sector"
+            ? (Array.isArray(value) ? value : value ? [value] : [])
+            : (value as string)
     }));
     setPagination((prev) => ({ ...prev, page: 1 }));
   };
+
+  const clearLeadFilters = () => {
+    setLeadFilters(initialLeadFilters);
+    setPagination((prev) => ({ ...prev, page: 1 }));
+  };
+
+  const hasActiveFilters =
+    Boolean(leadFilters.search.trim()) ||
+    leadFilters.phase !== "ALL" ||
+    Boolean(leadFilters.claimedById) ||
+    Boolean(leadFilters.createdById) ||
+    Boolean(leadFilters.region) ||
+    Boolean(leadFilters.subcity) ||
+    leadFilters.sector.length > 0 ||
+    (leadFilters.source !== "ALL" && Boolean(leadFilters.source));
 
   const toggleSelect = (leadId: string) => {
     setSelectedIds((prev) => (prev.includes(leadId) ? prev.filter((id) => id !== leadId) : [...prev, leadId]));
@@ -177,6 +240,8 @@ export function useAdminLeads() {
   return {
     leads,
     salesUsers,
+    locationOptions,
+    isFilterOptionsLoading,
     leadFilters,
     pagination,
     isLoading,
@@ -187,6 +252,8 @@ export function useAdminLeads() {
     bulkAssign,
     bulkPhase,
     updateLeadFilter,
+    clearLeadFilters,
+    hasActiveFilters,
     setPage: (page: number) => setPagination((prev) => ({ ...prev, page })),
     assignLead,
     updateLeadPhase,

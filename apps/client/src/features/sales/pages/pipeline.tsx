@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link, useSearchParams } from "react-router-dom";
 import {
   Calendar,
   Check,
@@ -16,8 +17,10 @@ import { useLeadList } from "../hooks/use-lead-list";
 import { useLeadDetail } from "../hooks/use-lead-detail";
 import { PhaseBadge } from "../../../components/ui/phase-badge";
 import { CustomSelect } from "../../../components/ui/custom-select";
+import { CustomMultiSelect } from "../../../components/ui/custom-multi-select";
 import { ActivityTimeline } from "../../../components/ui/activity-timeline";
-import { formatDateTime, phaseLabels } from "../../../lib/utils/format";
+import { formatCapital, formatDateTime, phaseLabels } from "../../../lib/utils/format";
+import { filterAddisSubcities, isAddisAbabaRegion } from "../../../lib/utils/addis-subcities";
 import type { Lead, LeadPhase } from "../../../types";
 import { useAuth } from "../../../hooks/use-auth";
 import { Pagination } from "../../../components/ui/pagination";
@@ -26,8 +29,9 @@ type LeadScope = "mine" | "all";
 
 const phaseTone: Record<LeadPhase, string> = {
   NEW: "bg-accent/10 text-accent",
-  CONTACTED: "bg-blue-500/10 text-blue-500",
+  CONTACTED: "bg-blue-500/10 text-blue-600 dark:text-blue-400",
   FOLLOW_UP: "bg-warning/10 text-warning",
+  N_A: "bg-muted/20 text-muted",
   CLOSED_WON: "bg-success/10 text-success",
   CLOSED_LOST: "bg-danger/10 text-danger"
 };
@@ -77,13 +81,19 @@ export function LeadModal({ leadId, onClose }: { leadId: string; onClose: () => 
   const stageOptions = (Object.entries(phaseLabels) as Array<[LeadPhase, string]>)
     .filter(([value]) => value !== "CLOSED_WON")
     .map(([value, label]) => ({ value, label: value === "NEW" && lead.claimedBy ? "Claimed" : label }));
+  const isMongo = lead.source === "MONGO" || Boolean(lead.isVirtual);
   const fields = [
     ["Business", lead.businessName],
     ["License", lead.licenceNumber],
+    ["Source", isMongo ? "Business directory" : "Manually added"],
     ["Region", lead.businessRegion],
     ["Zone", lead.businessZone],
-    ["Woreda", lead.businessWoreda],
-    ["Manager", [lead.managerFName, lead.managerMName, lead.managerLName].filter(Boolean).join(" ")]
+    ["Subcity / Woreda", lead.businessWoreda],
+    ["Manager", [lead.managerFName, lead.managerMName, lead.managerLName].filter(Boolean).join(" ")],
+    ["TIN", lead.registry?.tin || lead.licenceNumber],
+    ["Capital", lead.registry?.capital != null ? formatCapital(lead.registry.capital) : ""],
+    ["Score", lead.registry?.value != null ? formatCapital(lead.registry.value) : ""],
+    ["Nationality", lead.registry?.nationality || ""]
   ].filter(([, value]) => Boolean(value));
 
   const submitTransfer = async () => {
@@ -97,8 +107,12 @@ export function LeadModal({ leadId, onClose }: { leadId: string; onClose: () => 
       role="dialog"
       aria-modal="true"
       aria-label="Lead details"
+      onClick={onClose}
     >
-      <div className="flex max-h-[92vh] w-full max-w-5xl flex-col overflow-hidden rounded-t-2xl border border-separator bg-surface shadow-overlay animate-in slide-in-from-bottom-4 sm:rounded-2xl">
+      <div
+        className="flex max-h-[92vh] w-full max-w-5xl flex-col overflow-hidden rounded-t-2xl border border-separator bg-surface shadow-overlay animate-in slide-in-from-bottom-4 sm:rounded-2xl"
+        onClick={(event) => event.stopPropagation()}
+      >
         <header className="flex items-start justify-between border-b border-separator bg-default/20 px-5 py-4 sm:px-7">
           <div className="min-w-0">
             <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-accent">Lead dossier</p>
@@ -199,10 +213,15 @@ export function LeadModal({ leadId, onClose }: { leadId: string; onClose: () => 
 
             <div>
               <h3 className="text-xs font-bold uppercase tracking-wider text-foreground">Business profile</h3>
+              {!isMongo ? (
+                <p className="mt-3 rounded-xl border border-separator bg-default/10 p-4 text-xs text-muted">
+                  Extra business details (capital, TIN, nationality) are only available for leads from the business directory.
+                </p>
+              ) : null}
               <dl className="mt-3 grid grid-cols-2 gap-x-5 gap-y-3 rounded-xl border border-separator p-4 text-xs">
                 {fields.length ? (
                   fields.map(([label, value]) => (
-                    <div key={label}>
+                    <div key={String(label)}>
                       <dt className="text-[10px] font-bold uppercase tracking-wide text-muted">{label}</dt>
                       <dd className="mt-0.5 truncate font-semibold text-foreground">{value}</dd>
                     </div>
@@ -280,13 +299,16 @@ export function LeadModal({ leadId, onClose }: { leadId: string; onClose: () => 
 }
 
 export function SalesPipeline({ scope = "all", initialLeadId }: { scope?: LeadScope; initialLeadId?: string | null }) {
-  const list = useLeadList(scope);
+  const [searchParams] = useSearchParams();
+  const campaignId = searchParams.get("campaignId") || "";
+  const list = useLeadList(scope, campaignId);
   const [selectedId, setSelectedId] = useState<string | null>(initialLeadId ?? null);
-  const title = scope === "mine" ? "My leads" : "Lead pool";
-  const description =
-    scope === "mine"
-      ? "Your owned opportunities, laid out for fast review and focused follow-through."
-      : "The full sales inventory—claimed leads, team activity, and fresh opportunities to pick up.";
+  const title = campaignId ? "Campaign leads" : scope === "mine" ? "My leads" : "Lead pool";
+  const description = campaignId
+    ? "Leads assigned to you for this campaign. Open one to call and update progress."
+    : scope === "mine"
+      ? "Leads you own. Update stages, set follow-ups, and log calls here."
+      : "Browse available leads and claim the ones you want to work.";
 
   return (
     <div className="space-y-5">
@@ -295,30 +317,102 @@ export function SalesPipeline({ scope = "all", initialLeadId }: { scope?: LeadSc
         <p className="relative text-[10px] font-bold uppercase tracking-[0.2em] text-accent">Sales workspace</p>
         <h1 className="relative mt-1 text-2xl font-black tracking-tight text-foreground">{title}</h1>
         <p className="relative mt-1 max-w-2xl text-xs leading-relaxed text-muted">{description}</p>
+        {campaignId ? (
+          <Link to="/sales/campaigns" className="relative mt-2 inline-block text-[11px] font-bold text-accent hover:underline">
+            ← Back to campaigns
+          </Link>
+        ) : null}
       </div>
-      <div className="flex flex-col gap-3 rounded-xl border border-separator bg-surface p-3 sm:flex-row sm:items-center">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
-          <input
-            value={list.search}
-            onChange={(event) => list.setSearch(event.target.value)}
-            placeholder="Search name, business, license, or contact"
-            className="w-full rounded-lg border border-field-border bg-field-background py-2 pl-9 pr-3 text-xs"
+      <div className="space-y-3 rounded-xl border border-separator bg-surface p-3">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
+            <input
+              value={list.search}
+              onChange={(event) => list.setSearch(event.target.value)}
+              placeholder="Search name, business, license, or contact"
+              className="w-full rounded-lg border border-field-border bg-field-background py-2 pl-9 pr-3 text-xs"
+            />
+          </div>
+          <div className="flex gap-2 overflow-x-auto">
+            {(["ALL", "NEW", "CONTACTED", "FOLLOW_UP", "N_A", "CLOSED_WON", "CLOSED_LOST"] as const).map((item) => (
+              <button
+                key={item}
+                onClick={() => list.setPhase(item)}
+                className={`whitespace-nowrap rounded-lg px-3 py-2 text-[10px] font-bold ${
+                  list.phase === item ? "bg-foreground text-background" : "bg-default/50 text-muted hover:text-foreground"
+                }`}
+              >
+                {item === "ALL" ? "All stages" : phaseLabels[item]}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+          <CustomSelect
+            value={list.region || ""}
+            onChange={(val) => {
+              list.setRegion(val);
+              if (!isAddisAbabaRegion(val)) list.setSubcity("");
+            }}
+            options={[
+              { value: "", label: "All regions" },
+              ...list.locationOptions.regions.map((item) => ({ value: item, label: item }))
+            ]}
+            placeholder="Region"
+            loading={list.isFilterOptionsLoading}
+            ariaLabel="Filter by region"
+          />
+          <CustomSelect
+            value={list.subcity || ""}
+            onChange={list.setSubcity}
+            disabled={!isAddisAbabaRegion(list.region)}
+            options={[
+              {
+                value: "",
+                label: isAddisAbabaRegion(list.region) ? "All Addis subcities" : "Select Addis Ababa region first"
+              },
+              ...(isAddisAbabaRegion(list.region)
+                ? filterAddisSubcities(list.locationOptions.subcities).map((item) => ({ value: item, label: item }))
+                : [])
+            ]}
+            placeholder="Subcity"
+            loading={list.isFilterOptionsLoading}
+            ariaLabel="Filter by subcity"
+          />
+          <CustomMultiSelect
+            value={list.sector || []}
+            onChange={list.setSector}
+            options={(list.locationOptions.sectors || []).map((item) => ({ value: item, label: item }))}
+            placeholder="Sector"
+            emptyLabel="All sectors"
+            loading={list.isFilterOptionsLoading}
+            ariaLabel="Filter by sector"
+          />
+          <CustomSelect
+            value={list.source}
+            onChange={(val) => list.setSource(val as "ALL" | "LOCAL" | "MONGO")}
+            options={[
+              { value: "ALL", label: "All sources" },
+              { value: "LOCAL", label: "Manually added" },
+              { value: "MONGO", label: "Business registry" }
+            ]}
+            placeholder="Source"
+            ariaLabel="Filter by source"
           />
         </div>
-        <div className="flex gap-2 overflow-x-auto">
-          {(["ALL", "NEW", "CONTACTED", "FOLLOW_UP", "CLOSED_WON", "CLOSED_LOST"] as const).map((item) => (
+        {list.hasActiveFilters ? (
+          <div className="flex justify-end">
             <button
-              key={item}
-              onClick={() => list.setPhase(item)}
-              className={`whitespace-nowrap rounded-lg px-3 py-2 text-[10px] font-bold ${
-                list.phase === item ? "bg-foreground text-background" : "bg-default/50 text-muted hover:text-foreground"
-              }`}
+              type="button"
+              onClick={list.clearFilters}
+              className="btn-interactive inline-flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-[11px] font-bold text-muted hover:text-foreground"
             >
-              {item === "ALL" ? "All stages" : phaseLabels[item]}
+              <X className="h-3.5 w-3.5" />
+              Clear filters
             </button>
-          ))}
-        </div>
+          </div>
+        ) : null}
       </div>
       <div className="overflow-hidden rounded-xl border border-separator bg-surface">
         <div className="hidden grid-cols-[minmax(180px,1.5fr)_minmax(150px,1fr)_130px_150px_36px] gap-4 border-b border-separator bg-default/15 px-5 py-3 text-[10px] font-bold uppercase tracking-wider text-muted md:grid">
@@ -339,7 +433,8 @@ export function SalesPipeline({ scope = "all", initialLeadId }: { scope?: LeadSc
               lead.nextFollowUpAt &&
               new Date(lead.nextFollowUpAt).getTime() < Date.now() &&
               lead.phase !== "CLOSED_WON" &&
-              lead.phase !== "CLOSED_LOST";
+              lead.phase !== "CLOSED_LOST" &&
+              lead.phase !== "N_A";
             return (
               <button
                 key={lead.id}
@@ -352,7 +447,14 @@ export function SalesPipeline({ scope = "all", initialLeadId }: { scope?: LeadSc
                     {lead.phoneNumber}
                   </span>
                 </span>
-                <span className="hidden truncate text-xs text-muted md:block">{lead.businessName || "—"}</span>
+                <span className="hidden min-w-0 md:block">
+                  <span className="block truncate text-xs text-muted">{lead.businessName || "—"}</span>
+                  <span className="mt-0.5 block text-[10px] text-muted">
+                    {lead.source === "MONGO" ? "Registry" : "Local"}
+                    {lead.businessRegion ? ` · ${lead.businessRegion}` : ""}
+                    {lead.businessWoreda ? ` · ${lead.businessWoreda}` : ""}
+                  </span>
+                </span>
                 <span className={`hidden w-fit rounded-full px-2 py-1 text-[10px] font-bold md:block ${stage.tone}`}>{stage.label}</span>
                 <span className={`hidden items-center gap-1.5 text-[11px] md:flex ${overdue ? "font-semibold text-danger" : "text-muted"}`}>
                   {lead.appointmentDate ? <Calendar className="h-3.5 w-3.5 text-success" /> : <Clock3 className="h-3.5 w-3.5 text-warning" />}

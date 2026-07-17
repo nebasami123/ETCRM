@@ -16,6 +16,9 @@ const envSchema = z.object({
   BUSINESS_TIME_ZONE: z.string().default("Africa/Addis_Ababa"),
   UPLOAD_MAX_BYTES: z.coerce.number().int().positive().default(10 * 1024 * 1024),
   UPLOAD_MAX_ROWS: z.coerce.number().int().positive().max(100_000).default(10_000),
+  MONGODB_URL: z.string().min(1),
+  MONGODB_DB_NAME: z.string().min(1).default("etbus"),
+  MONGODB_BUSINESSES_COLLECTION: z.string().min(1).default("businesses"),
   ADMIN_NAME: z.string().min(2).optional(),
   ADMIN_EMAIL: z.string().email().optional(),
   ADMIN_PASSWORD: z.string().min(12).optional()

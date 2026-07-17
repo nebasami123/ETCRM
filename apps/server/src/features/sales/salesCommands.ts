@@ -1,7 +1,6 @@
 import { LeadPhase } from "@prisma/client";
 import {
   addCallNote,
-  claimLead,
   createLead,
   importLeads,
   requestClaimTransfer,
@@ -58,8 +57,10 @@ export const updateSalesFollowUp = ({
   followUpDate?: string | null;
 }) => updateLeadSchedule({ leadId, actorId: userId, kind: "follow-up", value: followUpDate, requireOwnership: true });
 
-export const claimSalesLead = ({ leadId, userId }: { leadId: string; userId: string }) =>
-  claimLead({ leadId, actorId: userId });
+export async function claimSalesLead({ leadId, userId }: { leadId: string; userId: string }) {
+  const { claimVirtualOrPersistedLead } = await import("../leads/unifiedLeadService.js");
+  return claimVirtualOrPersistedLead({ leadId, actorId: userId });
+}
 
 export const requestSalesClaimTransfer = ({
   leadId,

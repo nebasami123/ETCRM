@@ -5,20 +5,31 @@ import {
   assignLead,
   bulkAssignLeads,
   bulkUpdatePhases,
+  campaignAnalytics,
+  campaignFilterOptions,
+  createCampaign,
   createLead,
   createSalesUser,
+  deleteCampaign,
   exportReport,
+  getCampaign,
   getLeaderboard,
+  launchCampaign,
   listActivity,
+  listCampaigns,
   listLeads,
   listQuotas,
   listSalesUsers,
   listAllUsers,
   listTransferRequests,
+  localLeadFilterOptions,
   pendingTransferCount,
+  prepareCampaignPool,
+  previewCampaign,
   resolveTransferRequest,
   resetSalesUserPassword,
   updateAdminLeadPhase,
+  updateCampaign,
   uploadLeads,
   upsertQuota,
   updateLead,
@@ -39,6 +50,7 @@ adminRoutes.post("/sales-users", createSalesUser);
 adminRoutes.post("/sales-users/:id/password", resetSalesUserPassword);
 adminRoutes.get("/activity", listActivity);
 adminRoutes.get("/leads", listLeads);
+adminRoutes.get("/leads/filter-options", localLeadFilterOptions);
 adminRoutes.post("/leads", createLead);
 adminRoutes.patch("/leads/:id", updateLead);
 adminRoutes.post("/leads/upload", leadUpload.single("file"), uploadLeads);
@@ -53,3 +65,13 @@ adminRoutes.get("/quotas", listQuotas);
 adminRoutes.post("/quotas", upsertQuota);
 adminRoutes.get("/reports/export", exportReport);
 adminRoutes.get("/performance-metrics", getPerformanceMetrics);
+adminRoutes.get("/campaigns", listCampaigns);
+adminRoutes.get("/campaigns/filter-options", campaignFilterOptions);
+adminRoutes.get("/campaigns/analytics", campaignAnalytics);
+adminRoutes.post("/campaigns/preview", previewCampaign);
+adminRoutes.post("/campaigns", createCampaign);
+adminRoutes.get("/campaigns/:id", getCampaign);
+adminRoutes.patch("/campaigns/:id", updateCampaign);
+adminRoutes.post("/campaigns/:id/prepare-pool", prepareCampaignPool);
+adminRoutes.post("/campaigns/:id/launch", launchCampaign);
+adminRoutes.delete("/campaigns/:id", deleteCampaign);

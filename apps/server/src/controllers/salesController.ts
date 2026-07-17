@@ -28,6 +28,15 @@ const appointmentSchema = z.object({ appointmentDate: z.string().nullable().opti
 const followUpSchema = z.object({ nextFollowUpAt: z.string().nullable().optional() });
 const transferSchema = z.object({ reason: z.string().trim().min(3).max(1000) });
 const leadSchema = leadInputSchema;
+
+function parseQueryStringArray(value: unknown): string[] {
+  if (Array.isArray(value)) {
+    return [...new Set(value.map((item) => String(item ?? "").trim()).filter(Boolean))];
+  }
+  const raw = String(value ?? "").trim();
+  if (!raw) return [];
+  return [...new Set(raw.split(",").map((item) => item.trim()).filter(Boolean))];
+}
 const reminderSchema = z.object({
   label: z.string().trim().min(2).max(120),
   note: z.string().trim().max(1000).optional(),
@@ -66,10 +75,111 @@ export const listMyLeads: RequestHandler = async (req, res, next) => {
         search: String(req.query.search || ""),
         phase: String(req.query.phase || ""),
         scope: String(req.query.scope || "all"),
+        region: String(req.query.region || ""),
+        subcity: String(req.query.subcity || ""),
+        sector: parseQueryStringArray(req.query.sector),
+        source: String(req.query.source || ""),
+        campaignId: String(req.query.campaignId || ""),
         page: pagination.page,
         pageSize: pagination.pageSize
       })
     );
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const listMyCampaigns: RequestHandler = async (req, res, next) => {
+  try {
+    const { listSalesCampaigns } = await import("../features/campaigns/campaignQueries.js");
+    res.json({ campaigns: await listSalesCampaigns(req.user.id) });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const listRegistry: RequestHandler = async (req, res, next) => {
+  try {
+    const pagination = paginationSchema.parse({ page: req.query.page, pageSize: req.query.pageSize });
+    const { listRegistryLeads } = await import("../features/registry/registryService.js");
+    const result = await listRegistryLeads({
+      search: String(req.query.search || ""),
+      region: String(req.query.region || ""),
+      subcity: String(req.query.subcity || ""),
+      sector: parseQueryStringArray(req.query.sector),
+      nationality: String(req.query.nationality || ""),
+      businessType: String(req.query.businessType || ""),
+      capitalMin: req.query.capitalMin ? Number(req.query.capitalMin) : undefined,
+      capitalMax: req.query.capitalMax ? Number(req.query.capitalMax) : undefined,
+      scoreMin: req.query.scoreMin ? Number(req.query.scoreMin) : undefined,
+      scoreMax: req.query.scoreMax ? Number(req.query.scoreMax) : undefined,
+      page: pagination.page,
+      pageSize: pagination.pageSize
+    });
+    res.json({
+      ...result,
+      leads: result.leads.map((lead) => {
+        // Keep phoneKey for claim; mask display numbers until the lead is in CRM and claimed.
+        if (lead.inCrm && lead.claimedById) return { ...lead, contactMasked: false };
+        return {
+          ...lead,
+          phoneNumber: "+251 91 000 0000",
+          managerPhone: "+251 91 000 0000",
+          businessNumber: lead.businessNumber ? "+251 91 000 0000" : "",
+          contactMasked: true
+        };
+      })
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const registryFilterOptions: RequestHandler = async (_req, res, next) => {
+  try {
+    const { getRegistryFilterOptions } = await import("../features/registry/registryService.js");
+    res.json(await getRegistryFilterOptions());
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const localLeadFilterOptions: RequestHandler = async (_req, res, next) => {
+  try {
+    const { listLocalLeadFilterOptions } = await import("../features/registry/registryService.js");
+    res.json(await listLocalLeadFilterOptions());
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const claimRegistry: RequestHandler = async (req, res, next) => {
+  try {
+    const body = z
+      .object({
+        mongoBusinessId: z.string().min(1),
+        phoneKey: z.string().min(1).optional(),
+        phoneNumber: z.string().min(1).optional()
+      })
+      .refine((value) => value.phoneKey || value.phoneNumber, { message: "phoneKey or phoneNumber is required" })
+      .parse(req.body);
+    const { claimRegistryLead } = await import("../features/registry/registryService.js");
+    const result = await claimRegistryLead({
+      mongoBusinessId: body.mongoBusinessId,
+      phoneKey: body.phoneKey,
+      phoneNumber: body.phoneNumber,
+      actorId: req.user.id,
+      claimActor: true
+    });
+    if (result.status === "not-found") return res.status(404).json({ message: "Business not found in registry" });
+    if (result.status === "invalid-phone") return res.status(400).json({ message: "Phone number must contain digits" });
+    if (result.status === "phone-not-on-business") {
+      return res.status(400).json({ message: "That phone number is not on this business" });
+    }
+    if (result.status === "duplicate") {
+      return res.status(409).json({ message: "A lead with this phone number already exists", duplicate: result.duplicate });
+    }
+    res.status(201).json({ lead: result.lead });
   } catch (error) {
     next(error);
   }
