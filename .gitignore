@@ -14,8 +14,3 @@ apps/server/uploads/*
 !apps/server/uploads/.gitkeep
 
 .repowise
-
-# Opencode desktop application and plans
-opencode-desktop-*.exe
-opencode.json*
-plans/
