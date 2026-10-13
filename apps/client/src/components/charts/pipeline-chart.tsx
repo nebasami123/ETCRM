@@ -1,6 +1,6 @@
-import { useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { salesPipelineStages } from "@etcrm/contracts";
-import { ArrowRight, Check } from "lucide-react";
+import { ArrowRight, Check, ChevronDown } from "lucide-react";
 import type { AdminOverviewAggregates } from "../../types";
 import { leadSources, normalizeLeadSource } from "../../lib/constants/lead-sources";
 import "./pipeline-chart.css";
@@ -76,10 +76,27 @@ function edge(values: number[], width: number, reverse = false) {
 
 export function PipelineChart({ sources = [] }: { sources: AdminOverviewAggregates["pipelineSources"] }) {
   const id = useId();
-  const [source, setSource] = useState("all");
+  const [selectedSources, setSelectedSources] = useState<string[]>(() => [...leadSources]);
+  const [sourceMenuOpen, setSourceMenuOpen] = useState(false);
+  const sourceFilterRef = useRef<HTMLDivElement>(null);
   const [split, setSplit] = useState(true);
   const [flow, setFlow] = useState(true);
   const [active, setActive] = useState<number | null>(null);
+
+  useEffect(() => {
+    function handlePointerDown(event: MouseEvent) {
+      if (sourceFilterRef.current && !sourceFilterRef.current.contains(event.target as Node)) setSourceMenuOpen(false);
+    }
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") setSourceMenuOpen(false);
+    }
+    document.addEventListener("mousedown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, []);
   const normalized = new Map<string, { counts: number[]; current: number[]; progressed: number[] }>();
   for (const row of sources) {
     const label = normalizeLeadSource(row.source).source || "Unknown / not recorded";
@@ -97,7 +114,17 @@ export function PipelineChart({ sources = [] }: { sources: AdminOverviewAggregat
   const segments = leadSources.filter((label) => normalized.has(label)).map((label) => ({
     label, ...normalized.get(label)!, color: colors[leadSources.indexOf(label)]
   }));
-  const selected = source === "all" || !normalized.has(source) ? segments : segments.filter((segment) => segment.label === source);
+  const selectedSet = new Set(selectedSources);
+  const selected = segments.filter((segment) => selectedSet.has(segment.label));
+  const allSourcesSelected = selectedSources.length === leadSources.length;
+  const sourceFilterLabel = allSourcesSelected
+    ? "All sources"
+    : selectedSources.length === 0
+      ? "No sources"
+      : `${selectedSources.length} source${selectedSources.length === 1 ? "" : "s"} selected`;
+  const toggleSource = (label: string) => setSelectedSources((current) =>
+    current.includes(label) ? current.filter((sourceLabel) => sourceLabel !== label) : [...current, label]
+  );
   const totals = stages.map((_, index) => selected.reduce((sum, segment) => sum + segment.counts[index], 0));
   const total = totals[0] ?? 0;
   const current = stages.map((_, index) => selected.reduce((sum, segment) => sum + segment.current[index], 0));
@@ -126,10 +153,37 @@ export function PipelineChart({ sources = [] }: { sources: AdminOverviewAggregat
           <p className="mt-1 text-xs text-muted">{total.toLocaleString("en-US")} leads · All-time journey by source</p>
         </div>
         <div className="pipeline-chart-controls">
-          <select aria-label="Filter pipeline by lead source" value={source} onChange={(event) => setSource(event.target.value)}>
-            <option value="all">All sources</option>
-            {segments.map((segment) => <option key={segment.label}>{segment.label}</option>)}
-          </select>
+          <div className="pipeline-source-filter" ref={sourceFilterRef}>
+            <button
+              type="button"
+              className="pipeline-source-trigger"
+              aria-label="Filter pipeline by lead source"
+              aria-expanded={sourceMenuOpen}
+              aria-controls={`${id}-source-menu`}
+              onClick={() => setSourceMenuOpen((open) => !open)}
+            >
+              <span>{sourceFilterLabel}</span><ChevronDown size={16} aria-hidden="true" />
+            </button>
+            {sourceMenuOpen && <div className="pipeline-source-menu" id={`${id}-source-menu`} role="group" aria-label="Lead source filters">
+              <div className="pipeline-source-menu-actions">
+                <span>Lead sources</span>
+                <div>
+                  <button type="button" onClick={() => setSelectedSources([...leadSources])}>Select all</button>
+                  <button type="button" onClick={() => setSelectedSources([])}>Clear</button>
+                </div>
+              </div>
+              <div className="pipeline-source-options">
+                {leadSources.map((label) => <label key={label} className="pipeline-source-option">
+                  <input
+                    type="checkbox"
+                    checked={selectedSet.has(label)}
+                    onChange={() => toggleSource(label)}
+                  />
+                  <span>{label}</span>
+                </label>)}
+              </div>
+            </div>}
+          </div>
           <button type="button" role="switch" aria-checked={split} onClick={() => setSplit(!split)} className="pipeline-switch"><span aria-hidden="true" />Split</button>
           <button type="button" role="switch" aria-checked={flow} onClick={() => setFlow(!flow)} className="pipeline-switch"><span aria-hidden="true" />Flow</button>
         </div>
@@ -190,7 +244,7 @@ export function PipelineChart({ sources = [] }: { sources: AdminOverviewAggregat
           </> : <span className="text-muted">Hover or select a stage to see its source breakdown. Each lead counts once per recorded stage, even after moving on. Skipped stages are not inferred.</span>}
         </div>
         <div className="pipeline-chart-legend" aria-label="Lead sources">
-          {segments.map((segment) => <button key={segment.label} type="button" aria-pressed={source === segment.label} onClick={() => setSource(source === segment.label ? "all" : segment.label)} style={{ opacity: source !== "all" && source !== segment.label ? 0.5 : 1 }}><i style={{ backgroundColor: segment.color }} />{segment.label}</button>)}
+          {segments.map((segment) => <button key={segment.label} type="button" aria-pressed={selectedSet.has(segment.label)} onClick={() => toggleSource(segment.label)} style={{ opacity: selectedSet.has(segment.label) ? 1 : 0.5 }}><i style={{ backgroundColor: segment.color }} />{segment.label}</button>)}
         </div>
         <div className="sr-only"><table><caption>Unique leads that reached each stage, by lead source</caption><thead><tr><th>Stage</th>{selected.map((segment) => <th key={segment.label}>{segment.label}</th>)}<th>Total</th></tr></thead><tbody>{stages.map((stage, index) => <tr key={stage}><th scope="row">{stage}</th>{selected.map((segment) => <td key={segment.label}>{segment.counts[index]}</td>)}<td>{totals[index]}</td></tr>)}</tbody></table></div>
       </>}
