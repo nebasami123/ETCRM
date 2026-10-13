@@ -4,7 +4,8 @@ declare global {
       id: string;
       name: string;
       email: string;
-      role: "ADMIN" | "SALES";
+      role: "ADMIN" | "SALES" | "SALES_ADMIN";
+      salesType: "INTERNAL" | "EXTERNAL" | null;
     }
 
     interface Request {

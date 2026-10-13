@@ -1,22 +1,12 @@
 import { useAdminOverview } from "../hooks/use-admin-overview";
 import { KPICard } from "../../../components/ui/kpi-card";
 import { BarChart } from "../../../components/charts/bar-chart";
+import { PipelineChart } from "../../../components/charts/pipeline-chart";
 import { DonutChart } from "../../../components/charts/donut-chart";
 import { LoadingSkeleton } from "../../../components/ui/loading-skeleton";
 import { LeaderboardTable } from "../../../components/ui/leaderboard-table";
 import { Card } from "../../../components/ui/card";
-import { phaseLabels } from "../../../lib/utils/format";
-import type { ActivityType, LeadPhase } from "../../../types";
-
-const phaseColors: Record<LeadPhase, string> = {
-  NEW: "var(--accent)",
-  CONTACTED: "#3b82f6",
-  FOLLOW_UP: "var(--warning)",
-  N_A: "var(--muted)",
-  CLOSED_WON: "var(--success)",
-  CLOSED_LOST: "var(--danger)"
-};
-
+import type { ActivityType } from "../../../types";
 const activityMeta: Array<{ type: ActivityType; label: string; fill: string }> = [
   { type: "CALL_NOTE", label: "Calls", fill: "var(--accent)" },
   { type: "PHASE_CHANGED", label: "Stage Updates", fill: "#3b82f6" },
@@ -43,12 +33,6 @@ export function AdminOverview() {
   const totalInProgress = leaderboard.reduce((sum, e) => sum + e.inProgress, 0);
   const conversionBase = totalWon + totalLost + totalInProgress;
   const winRate = conversionBase ? Math.round((totalWon / conversionBase) * 100) : 0;
-
-  const phaseData = (Object.keys(phaseLabels) as LeadPhase[]).map((phase) => ({
-    name: phaseLabels[phase],
-    value: aggregates?.phaseCounts.find((row) => row.phase === phase)?.count ?? 0,
-    fill: phaseColors[phase]
-  }));
 
   const agentOutcomeData = (aggregates?.agentOutcomes ?? [])
     .slice(0, 8)
@@ -83,34 +67,9 @@ export function AdminOverview() {
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3">
-        <Card
-          className="premium-card group relative overflow-hidden bg-linear-to-br from-surface to-surface/95 p-5 shadow-surface hover:-translate-y-0.5 hover:shadow-lg transition-all duration-300 ease-out-smooth lg:col-span-2"
-          style={{ "--card-glow": "var(--accent)" } as React.CSSProperties}
-        >
-          <div className="absolute -right-6 -bottom-6 w-20 h-20 rounded-full bg-accent/3 opacity-0 group-hover:opacity-100 blur-xl pointer-events-none group-hover:scale-170 transition-all duration-500 ease-out-smooth" />
-          <h3 className="text-xs font-bold text-foreground uppercase tracking-wider">Pipeline Shape</h3>
-          <p className="text-[11px] text-muted mt-1 mb-4">
-            How many leads sit in each stage of the pipeline.
-          </p>
-          <div className="h-64 w-full">
-            {phaseData.some((p) => p.value > 0) ? (
-              <BarChart
-                data={phaseData}
-                xKey="name"
-                yKeys={["value"]}
-                valueFormatter={(value) =>
-                  value >= 1_000_000
-                    ? `${(value / 1_000_000).toFixed(value >= 10_000_000 ? 0 : 1)}M`
-                    : value >= 1_000
-                      ? `${(value / 1_000).toFixed(value >= 10_000 ? 0 : 1)}K`
-                      : value.toLocaleString("en-US")
-                }
-              />
-            ) : (
-              <div className="flex h-full items-center justify-center text-xs text-muted">No data available</div>
-            )}
-          </div>
-        </Card>
+        <div className="min-w-0 lg:col-span-3">
+          <PipelineChart sources={aggregates?.pipelineSources ?? []} />
+        </div>
 
         <Card
           className="premium-card group relative overflow-hidden bg-linear-to-br from-surface to-surface/95 p-5 shadow-surface hover:-translate-y-0.5 hover:shadow-lg transition-all duration-300 ease-out-smooth"
@@ -142,7 +101,7 @@ export function AdminOverview() {
         </Card>
 
         <Card
-          className="premium-card group relative overflow-hidden bg-linear-to-br from-surface to-surface/95 p-5 shadow-surface hover:-translate-y-0.5 hover:shadow-lg transition-all duration-300 ease-out-smooth lg:col-span-3"
+          className="premium-card group relative overflow-hidden bg-linear-to-br from-surface to-surface/95 p-5 shadow-surface hover:-translate-y-0.5 hover:shadow-lg transition-all duration-300 ease-out-smooth lg:col-span-2"
           style={{ "--card-glow": "var(--success)" } as React.CSSProperties}
         >
           <div className="absolute -right-6 -bottom-6 w-20 h-20 rounded-full bg-success/3 opacity-0 group-hover:opacity-100 blur-xl pointer-events-none group-hover:scale-170 transition-all duration-500 ease-out-smooth" />

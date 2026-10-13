@@ -7,6 +7,7 @@ import { auth } from "./auth/auth.js";
 import { allowedOrigins, env } from "./config/env.js";
 import { adminRoutes } from "./routes/adminRoutes.js";
 import { salesRoutes } from "./routes/salesRoutes.js";
+import { salesAdminRoutes } from "./routes/salesAdminRoutes.js";
 import { errorHandler } from "./middleware/errorHandler.js";
 
 export const app = express();
@@ -47,4 +48,5 @@ app.get("/health", (_req, res) => res.json({ status: "ok", version: appVersion, 
 app.get("/api/version", (_req, res) => res.json({ version: appVersion, build: buildCommit }));
 app.use("/api/admin", adminRoutes);
 app.use("/api/sales", salesRoutes);
+app.use("/api/sales-admin", salesAdminRoutes);
 app.use(errorHandler);

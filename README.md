@@ -16,6 +16,8 @@ pnpm seed
 pnpm dev
 ```
 
+`pnpm seed` creates the development demo data only when the CRM database is empty. It refuses to run when users or leads already exist. To intentionally replace all local CRM data with the demo dataset, run `pnpm seed:clear`. That command is disabled when `NODE_ENV=production`.
+
 The Compose database is PostgreSQL 18 on `127.0.0.1:5433`; it creates isolated `etcrm_dev`, `etcrm_shadow`, and `etcrm_test` databases. Do not use `prisma db push` for this project.
 
 Local URLs:
@@ -24,6 +26,10 @@ Local URLs:
 - API health: `http://127.0.0.1:4000/health`
 
 Demo seed accounts: `admin@etcrm.local`, `sales@etcrm.local`, and `maria@etcrm.local`; each has password `password123`. These accounts are development-only.
+
+For a populated admin journey chart, run `pnpm --dir apps/server seed:pipeline:demo` against local PostgreSQL after creating the demo users. It adds 600 labeled demo leads across five sources, complete stage histories, source-specific conversion rates, wins, early losses, skipped stages, and repeat/backward updates. It preserves existing records and can be rerun without duplicating the cohort. It refuses remote databases and production environments.
+
+Production bootstrap creates only the configured admin account. Demo users and leads are never added in production. The optional Lead Log demo seed also requires an explicit `--include-demo-data` opt-in and refuses to run in production.
 
 ## Environment
 

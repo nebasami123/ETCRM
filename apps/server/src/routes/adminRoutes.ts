@@ -10,6 +10,8 @@ import {
   createCampaign,
   createLead,
   createSalesUser,
+  setManagedUserStatus,
+  setManagedSalesType,
   deleteCampaign,
   exportReport,
   getCampaign,
@@ -48,6 +50,8 @@ adminRoutes.get("/sales-users", listSalesUsers);
 adminRoutes.get("/users", listAllUsers);
 adminRoutes.post("/sales-users", createSalesUser);
 adminRoutes.post("/sales-users/:id/password", resetSalesUserPassword);
+adminRoutes.patch("/users/:id/status", setManagedUserStatus);
+adminRoutes.patch("/sales-users/:id/type", setManagedSalesType);
 adminRoutes.get("/activity", listActivity);
 adminRoutes.get("/leads", listLeads);
 adminRoutes.get("/leads/filter-options", localLeadFilterOptions);

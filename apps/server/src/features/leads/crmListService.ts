@@ -4,6 +4,7 @@ import { normalizeSectorFilter } from "../registry/registryService.js";
 import { hydrateMongoLeads } from "../registry/registryService.js";
 import { localLeadInclude, registryLeadInclude } from "./leadIdentity.js";
 import { localLeadToView, registryLeadToView, type LeadView } from "./leadView.js";
+import { salesPipelineStages, type SalesPipelineStage } from "./pipelineStage.js";
 
 export type CrmListFilters = {
   search?: string;
@@ -20,6 +21,8 @@ export type CrmListFilters = {
   campaignAssigneeId?: string;
   /** Restrict claimed rows to this user (sales mine). */
   ownerUserId?: string;
+  salesUserIds?: string[];
+  pipelineStage?: string;
   page?: number;
   pageSize?: number;
   orderBy?: "updatedAt" | "createdAt";
@@ -36,11 +39,13 @@ function localWhere(filters: CrmListFilters): Prisma.LeadWhereInput {
   const search = filters.search?.trim();
   const phase = phaseWhere(filters.phase);
   const claimedById = filters.claimedById?.trim();
-  const region = filters.region?.trim();
-  const subcity = filters.subcity?.trim();
-  const sectors = normalizeSectorFilter(filters.sector);
+  const andConditions: Prisma.LeadWhereInput[] = filters.salesUserIds
+    ? [{ OR: [{ claimedById: { in: filters.salesUserIds } }, { createdById: { in: filters.salesUserIds } }] }]
+    : [];
+  if (filters.pipelineStage && salesPipelineStages.includes(filters.pipelineStage as SalesPipelineStage)) andConditions.push({ pipelineStage: filters.pipelineStage });
 
   return {
+    ...(andConditions.length ? { AND: andConditions } : {}),
     ...(filters.ownerUserId ? { claimedById: filters.ownerUserId } : {}),
     ...(phase ? { phase } : {}),
     ...(claimedById === "UNCLAIMED"
@@ -49,24 +54,12 @@ function localWhere(filters: CrmListFilters): Prisma.LeadWhereInput {
         ? { claimedById }
         : {}),
     ...(filters.createdById ? { createdById: filters.createdById } : {}),
-    ...(region ? { businessRegion: { equals: region, mode: "insensitive" } } : {}),
-    ...(subcity ? { businessWoreda: { equals: subcity, mode: "insensitive" } } : {}),
-    ...(sectors.length === 1
-      ? { englishDescription: { equals: sectors[0], mode: "insensitive" } }
-      : sectors.length > 1
-        ? { OR: sectors.map((item) => ({ englishDescription: { equals: item, mode: "insensitive" as const } })) }
-        : {}),
     ...(search
       ? {
           OR: [
             "fullName",
             "phoneNumber",
-            "email",
-            "businessName",
-            "licenceNumber",
-            "businessRegion",
-            "businessWoreda",
-            "englishDescription"
+            "email"
           ].map((field) => ({ [field]: { contains: search, mode: "insensitive" as const } }))
         }
       : {})
@@ -80,8 +73,13 @@ function registryWhere(filters: CrmListFilters): Prisma.RegistryLeadWhereInput {
   const region = filters.region?.trim();
   const subcity = filters.subcity?.trim();
   const sectors = normalizeSectorFilter(filters.sector);
+  const andConditions: Prisma.RegistryLeadWhereInput[] = filters.salesUserIds
+    ? [{ OR: [{ claimedById: { in: filters.salesUserIds } }, { createdById: { in: filters.salesUserIds } }] }]
+    : [];
+  if (filters.pipelineStage && salesPipelineStages.includes(filters.pipelineStage as SalesPipelineStage)) andConditions.push({ pipelineStage: filters.pipelineStage });
 
   return {
+    ...(andConditions.length ? { AND: andConditions } : {}),
     ...(filters.ownerUserId ? { claimedById: filters.ownerUserId } : {}),
     ...(phase ? { phase } : {}),
     ...(claimedById === "UNCLAIMED"

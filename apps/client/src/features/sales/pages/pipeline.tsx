@@ -19,11 +19,12 @@ import { PhaseBadge } from "../../../components/ui/phase-badge";
 import { CustomSelect } from "../../../components/ui/custom-select";
 import { CustomMultiSelect } from "../../../components/ui/custom-multi-select";
 import { ActivityTimeline } from "../../../components/ui/activity-timeline";
-import { formatCapital, formatDateTime, phaseLabels } from "../../../lib/utils/format";
+import { formatDateTime, phaseLabels } from "../../../lib/utils/format";
 import { filterAddisSubcities, isAddisAbabaRegion } from "../../../lib/utils/addis-subcities";
-import type { Lead, LeadPhase } from "../../../types";
+import type { Lead, LeadPhase, SalesPipelineStage } from "../../../types";
 import { useAuth } from "../../../hooks/use-auth";
 import { Pagination } from "../../../components/ui/pagination";
+import { salesPipelineStages as pipelineStages } from "@etcrm/contracts";
 
 type LeadScope = "mine" | "all";
 
@@ -78,23 +79,17 @@ export function LeadModal({ leadId, onClose }: { leadId: string; onClose: () => 
   const isUnclaimed = !lead.claimedBy;
   const masked = lead.contactMasked ?? false;
   const stage = displayStage(lead);
-  const stageOptions = (Object.entries(phaseLabels) as Array<[LeadPhase, string]>)
-    .filter(([value]) => value !== "CLOSED_WON")
-    .map(([value, label]) => ({ value, label: value === "NEW" && lead.claimedBy ? "Claimed" : label }));
+  const stageOptions = pipelineStages.map((value) => ({
+    value,
+    label: value === "Closed Won" ? `${value} · admin only` : value,
+    disabled: value === "Closed Won"
+  }));
   const isMongo = lead.source === "MONGO" || Boolean(lead.isVirtual);
   const fields = [
-    ["Business", lead.businessName],
-    ["License", lead.licenceNumber],
     ["Source", isMongo ? "Business directory" : "Manually added"],
-    ["Region", lead.businessRegion],
-    ["Zone", lead.businessZone],
-    ["Subcity / Woreda", lead.businessWoreda],
-    ["Manager", [lead.managerFName, lead.managerMName, lead.managerLName].filter(Boolean).join(" ")],
-    ["TIN", lead.registry?.tin || lead.licenceNumber],
-    ["Capital", lead.registry?.capital != null ? formatCapital(lead.registry.capital) : ""],
-    ["Score", lead.registry?.value != null ? formatCapital(lead.registry.value) : ""],
-    ["Nationality", lead.registry?.nationality || ""]
-  ].filter(([, value]) => Boolean(value));
+    ["Stage", lead.pipelineStage || phaseLabels[lead.phase]],
+    ["Claimed by", lead.claimedBy?.name || "Unclaimed"]
+  ];
 
   const submitTransfer = async () => {
     await detail.requestTransfer(transferReason);
@@ -212,12 +207,7 @@ export function LeadModal({ leadId, onClose }: { leadId: string; onClose: () => 
             </div>
 
             <div>
-              <h3 className="text-xs font-bold uppercase tracking-wider text-foreground">Business profile</h3>
-              {!isMongo ? (
-                <p className="mt-3 rounded-xl border border-separator bg-default/10 p-4 text-xs text-muted">
-                  Extra business details (capital, TIN, nationality) are only available for leads from the business directory.
-                </p>
-              ) : null}
+              <h3 className="text-xs font-bold uppercase tracking-wider text-foreground">Lead overview</h3>
               <dl className="mt-3 grid grid-cols-2 gap-x-5 gap-y-3 rounded-xl border border-separator p-4 text-xs">
                 {fields.length ? (
                   fields.map(([label, value]) => (
@@ -227,7 +217,7 @@ export function LeadModal({ leadId, onClose }: { leadId: string; onClose: () => 
                     </div>
                   ))
                 ) : (
-                  <p className="col-span-2 text-muted">No additional business information was provided.</p>
+                  <p className="col-span-2 text-muted">No additional lead details.</p>
                 )}
               </dl>
             </div>
@@ -245,22 +235,12 @@ export function LeadModal({ leadId, onClose }: { leadId: string; onClose: () => 
             <label className="block text-xs font-bold text-foreground">
               Stage
               <CustomSelect
-                value={detail.phase}
-                onChange={(value) => detail.setPhase(value as LeadPhase)}
+                value={detail.pipelineStage}
+                onChange={(value) => detail.setPipelineStage(value as SalesPipelineStage)}
                 options={stageOptions}
                 disabled={!isMine}
                 className="mt-2"
                 ariaLabel="Lead stage"
-              />
-            </label>
-            <label className="block text-xs font-bold text-foreground">
-              Appointment
-              <input
-                type="datetime-local"
-                value={detail.appointmentDate}
-                onChange={(event) => detail.setAppointmentDate(event.target.value)}
-                disabled={!isMine}
-                className="mt-2 w-full rounded-lg border border-field-border bg-field-background px-3 py-2 text-xs disabled:opacity-50"
               />
             </label>
             <label className="block text-xs font-bold text-foreground">
@@ -269,6 +249,16 @@ export function LeadModal({ leadId, onClose }: { leadId: string; onClose: () => 
                 type="datetime-local"
                 value={detail.followUpDate}
                 onChange={(event) => detail.setFollowUpDate(event.target.value)}
+                disabled={!isMine}
+                className="mt-2 w-full rounded-lg border border-field-border bg-field-background px-3 py-2 text-xs disabled:opacity-50"
+              />
+            </label>
+            <label className="block text-xs font-bold text-foreground">
+              Appointment
+              <input
+                type="datetime-local"
+                value={detail.appointmentDate}
+                onChange={(event) => detail.setAppointmentDate(event.target.value)}
                 disabled={!isMine}
                 className="mt-2 w-full rounded-lg border border-field-border bg-field-background px-3 py-2 text-xs disabled:opacity-50"
               />
@@ -447,14 +437,7 @@ export function SalesPipeline({ scope = "all", initialLeadId }: { scope?: LeadSc
                     {lead.phoneNumber}
                   </span>
                 </span>
-                <span className="hidden min-w-0 md:block">
-                  <span className="block truncate text-xs text-muted">{lead.businessName || "—"}</span>
-                  <span className="mt-0.5 block text-[10px] text-muted">
-                    {lead.source === "MONGO" ? "Registry" : "Local"}
-                    {lead.businessRegion ? ` · ${lead.businessRegion}` : ""}
-                    {lead.businessWoreda ? ` · ${lead.businessWoreda}` : ""}
-                  </span>
-                </span>
+                <span className="hidden min-w-0 text-[10px] text-muted md:block">{lead.source === "MONGO" ? "Registry" : "Local"}</span>
                 <span className={`hidden w-fit rounded-full px-2 py-1 text-[10px] font-bold md:block ${stage.tone}`}>{stage.label}</span>
                 <span className={`hidden items-center gap-1.5 text-[11px] md:flex ${overdue ? "font-semibold text-danger" : "text-muted"}`}>
                   {lead.appointmentDate ? <Calendar className="h-3.5 w-3.5 text-success" /> : <Clock3 className="h-3.5 w-3.5 text-warning" />}

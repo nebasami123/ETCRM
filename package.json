@@ -7,6 +7,7 @@
     "build": "pnpm --dir apps/client build && pnpm --dir apps/server typecheck && tsc --noEmit -p tsconfig.scripts.json",
     "test": "vitest run --config apps/server/vitest.config.ts",
     "seed": "pnpm --dir apps/server seed",
+    "seed:clear": "pnpm --dir apps/server seed:clear",
     "db:migrate": "pnpm --dir apps/server migrate:dev",
     "db:deploy": "pnpm --dir apps/server migrate:deploy",
     "db:reset": "pnpm --dir apps/server db:reset"

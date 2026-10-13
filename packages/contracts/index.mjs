@@ -1,19 +1,30 @@
 import { z } from "zod";
 
+export const salesPipelineStages = [
+  "Lead",
+  "Contacted",
+  "Meeting Booked",
+  "Showed Up",
+  "Demo / Presentation",
+  "Proposal",
+  "Negotiation",
+  "Closed Won",
+  "Closed Lost"
+];
+
 export const leadInputSchema = z.object({
   fullName: z.string().trim().min(1),
-  phoneNumber: z.string().trim().min(1),
-  email: z.string().trim().optional(),
+  phoneNumber: z.string().trim().min(1).refine((value) => {
+    const digits = value.replace(/\D/g, "");
+    return /^\+?[0-9][0-9\s().-]*$/.test(value) && digits.length >= 7 && digits.length <= 15;
+  }, "Enter a valid phone number (7–15 digits)"),
+  email: z.string().trim().email("Enter a valid email address").optional().or(z.literal("")),
   appointmentDate: z.string().nullable().optional(),
   nextFollowUpAt: z.string().nullable().optional(),
-  businessName: z.string().trim().optional(),
-  licenceNumber: z.string().trim().optional(),
-  businessRegion: z.string().trim().optional(),
-  businessZone: z.string().trim().optional(),
-  businessWoreda: z.string().trim().optional(),
-  businessKebele: z.string().trim().optional(),
-  houseNumber: z.string().trim().optional(),
-  businessTelephone: z.string().trim().optional()
+  pipelineStage: z.enum(salesPipelineStages).optional(),
+  leadSource: z.string().trim().max(100).optional(),
+  leadSourceDetail: z.string().trim().max(200).optional(),
+  note: z.string().trim().max(5000).optional()
 });
 
 export const paginationSchema = z.object({

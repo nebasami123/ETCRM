@@ -1,19 +1,28 @@
 import { z } from "zod";
 
+export declare const salesPipelineStages: readonly [
+  "Lead",
+  "Contacted",
+  "Meeting Booked",
+  "Showed Up",
+  "Demo / Presentation",
+  "Proposal",
+  "Negotiation",
+  "Closed Won",
+  "Closed Lost"
+];
+export type SalesPipelineStage = (typeof salesPipelineStages)[number];
+
 export declare const leadInputSchema: z.ZodObject<{
   fullName: z.ZodString;
-  phoneNumber: z.ZodString;
-  email: z.ZodOptional<z.ZodString>;
+  phoneNumber: z.ZodEffects<z.ZodString, string, string>;
+  email: z.ZodUnion<[z.ZodOptional<z.ZodString>, z.ZodLiteral<"">]>;
   appointmentDate: z.ZodOptional<z.ZodNullable<z.ZodString>>;
   nextFollowUpAt: z.ZodOptional<z.ZodNullable<z.ZodString>>;
-  businessName: z.ZodOptional<z.ZodString>;
-  licenceNumber: z.ZodOptional<z.ZodString>;
-  businessRegion: z.ZodOptional<z.ZodString>;
-  businessZone: z.ZodOptional<z.ZodString>;
-  businessWoreda: z.ZodOptional<z.ZodString>;
-  businessKebele: z.ZodOptional<z.ZodString>;
-  houseNumber: z.ZodOptional<z.ZodString>;
-  businessTelephone: z.ZodOptional<z.ZodString>;
+    pipelineStage: z.ZodOptional<z.ZodEnum<typeof salesPipelineStages>>;
+    leadSource: z.ZodOptional<z.ZodString>;
+    leadSourceDetail: z.ZodOptional<z.ZodString>;
+    note: z.ZodOptional<z.ZodString>;
 }>;
 
 export declare const paginationSchema: z.ZodObject<{

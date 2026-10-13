@@ -16,6 +16,8 @@ interface BarChartProps {
   yKeys: string[];
   colors?: string[];
   layout?: "horizontal" | "vertical";
+  /** Width for category labels when using a horizontal bar layout. */
+  categoryAxisWidth?: number;
   stacked?: boolean;
   /** Optional domain for the numeric axis, e.g. [0, 100] for percentages. */
   domain?: [number, number];
@@ -44,6 +46,7 @@ export function BarChart({
   yKeys,
   colors = ["#309477", "#cda043", "#e67768"],
   layout = "horizontal",
+  categoryAxisWidth = 90,
   stacked = false,
   domain,
   yLabels,
@@ -104,7 +107,7 @@ export function BarChart({
               type="category"
               tickLine={false}
               axisLine={false}
-              width={90}
+              width={categoryAxisWidth}
               tick={{ fill: "var(--muted)", fontSize: 10, fontWeight: 500 }}
             />
           )}

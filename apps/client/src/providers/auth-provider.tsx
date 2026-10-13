@@ -13,12 +13,13 @@ interface AuthContextValue {
 
 export const AuthContext = createContext<AuthContextValue | null>(null);
 
-function toAuthUser(user: { id: string; name: string; email: string; role?: string }): AuthUser {
+function toAuthUser(user: { id: string; name: string; email: string; role?: string; salesType?: "INTERNAL" | "EXTERNAL" | null }): AuthUser {
   return {
     id: user.id,
     name: user.name,
     email: user.email,
-    role: user.role === "ADMIN" ? "ADMIN" : "SALES"
+    role: user.role === "ADMIN" ? "ADMIN" : user.role === "SALES_ADMIN" ? "SALES_ADMIN" : "SALES",
+    salesType: user.salesType ?? null
   } as AuthUser;
 }
 
@@ -28,7 +29,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     authClient.getSession()
-      .then((result: { data?: { user?: { id: string; name: string; email: string; role?: string } } | null }) =>
+      .then((result: { data?: { user?: { id: string; name: string; email: string; role?: string; salesType?: "INTERNAL" | "EXTERNAL" | null } } | null }) =>
         setUser(result.data?.user ? toAuthUser(result.data.user) : null)
       )
       .catch(() => setUser(null))

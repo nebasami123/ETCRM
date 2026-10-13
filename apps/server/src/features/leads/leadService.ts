@@ -11,11 +11,6 @@ export function phoneKey(value: string) {
   return normalized;
 }
 
-export function licenceKey(value: string | null | undefined) {
-  const normalized = String(value || "").trim().toLowerCase();
-  return normalized || null;
-}
-
 export function isSalesRole(role: string) {
   return role === "SALES";
 }

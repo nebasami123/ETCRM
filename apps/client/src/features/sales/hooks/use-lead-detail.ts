@@ -1,8 +1,17 @@
 import { useEffect, useState } from "react";
-import type { Lead, LeadPhase } from "../../../types";
+import type { Lead, SalesPipelineStage } from "../../../types";
 import { salesApi } from "../api";
 import { useToast } from "../../../hooks/use-toast";
 import { toDateTimeLocalValue, getErrorMessage } from "../../../lib/utils/format";
+
+function stageForLead(lead: Lead): SalesPipelineStage {
+  if (lead.pipelineStage) return lead.pipelineStage;
+  if (lead.phase === "NEW") return "Lead";
+  if (lead.phase === "CONTACTED") return "Contacted";
+  if (lead.phase === "CLOSED_WON") return "Closed Won";
+  if (lead.phase === "CLOSED_LOST") return "Closed Lost";
+  return "Meeting Booked";
+}
 
 export function useLeadDetail(leadId: string | null) {
   const [lead, setLead] = useState<Lead | null>(null);
@@ -11,7 +20,7 @@ export function useLeadDetail(leadId: string | null) {
   const { success, danger } = useToast();
 
   // Form inputs matching details panel
-  const [phase, setPhase] = useState<LeadPhase>("NEW");
+  const [pipelineStage, setPipelineStage] = useState<SalesPipelineStage>("Lead");
   const [appointmentDate, setAppointmentDate] = useState("");
   const [followUpDate, setFollowUpDate] = useState("");
   const [note, setNote] = useState("");
@@ -25,7 +34,7 @@ export function useLeadDetail(leadId: string | null) {
       setIsLoading(true);
       const data = await salesApi.getLead(leadId);
       setLead(data);
-      setPhase(data.phase);
+      setPipelineStage(stageForLead(data));
       setAppointmentDate(toDateTimeLocalValue(data.appointmentDate));
       setFollowUpDate(toDateTimeLocalValue(data.nextFollowUpAt));
     } catch (err: unknown) {
@@ -39,7 +48,7 @@ export function useLeadDetail(leadId: string | null) {
     loadLeadDetail();
   }, [leadId]);
 
-  const phaseChanged = lead ? phase !== lead.phase : false;
+  const stageChanged = lead ? pipelineStage !== stageForLead(lead) : false;
   const apptChanged = lead ? appointmentDate !== toDateTimeLocalValue(lead.appointmentDate) : false;
   const followChanged = lead ? followUpDate !== toDateTimeLocalValue(lead.nextFollowUpAt) : false;
   const noteAdded = note.trim().length > 0;
@@ -47,7 +56,7 @@ export function useLeadDetail(leadId: string | null) {
   const apptValid = !apptChanged || !!appointmentDate;
   const followValid = !followChanged || !!followUpDate;
 
-  const canSave = (phaseChanged || apptChanged || followChanged || noteAdded) && apptValid && followValid && !saving;
+  const canSave = (stageChanged || apptChanged || followChanged || noteAdded) && apptValid && followValid && !saving;
 
   const saveAllChanges = async () => {
     if (!lead) return;
@@ -55,8 +64,11 @@ export function useLeadDetail(leadId: string | null) {
       setSaving(true);
       const promises = [];
 
-      if (phaseChanged) {
-        promises.push(salesApi.updatePhase(lead.id, phase));
+      if (stageChanged || noteAdded) {
+        promises.push(salesApi.updateLeadLog(lead.id, {
+          pipelineStage,
+          note: noteAdded ? note.trim() : `Pipeline stage updated to ${pipelineStage}`
+        }));
       }
       if (apptChanged) {
         const dateVal = appointmentDate ? new Date(appointmentDate).toISOString() : null;
@@ -65,9 +77,6 @@ export function useLeadDetail(leadId: string | null) {
       if (followChanged) {
         const dateVal = followUpDate ? new Date(followUpDate).toISOString() : null;
         promises.push(salesApi.updateFollowUp(lead.id, dateVal));
-      }
-      if (noteAdded) {
-        promises.push(salesApi.addNote(lead.id, note));
       }
 
       if (promises.length > 0) {
@@ -115,8 +124,8 @@ export function useLeadDetail(leadId: string | null) {
     lead,
     isLoading,
     saving,
-    phase,
-    setPhase,
+    pipelineStage,
+    setPipelineStage,
     appointmentDate,
     setAppointmentDate,
     followUpDate,

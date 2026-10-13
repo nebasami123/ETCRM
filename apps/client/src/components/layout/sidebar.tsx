@@ -8,13 +8,14 @@ import {
   ArrowLeftRight,
   ChevronLeft,
   ChevronRight,
-  Plus,
   Kanban,
   ListTodo,
   Layers3,
   TrendingUp,
   Megaphone,
-  X
+  NotebookPen,
+  X,
+  ShieldCheck
 } from "lucide-react";
 import { useAuth } from "../../hooks/use-auth";
 import { Logo } from "../../assets/logo";
@@ -61,6 +62,8 @@ export function Sidebar({
   if (!user) return null;
 
   const isAdmin = user.role === "ADMIN";
+  const isSalesAdmin = user.role === "SALES_ADMIN";
+  const isExternalSales = user.role === "SALES" && user.salesType === "EXTERNAL";
 
   type NavItem = { icon: typeof LayoutDashboard; label: string; to: string; badge?: number };
 
@@ -81,10 +84,23 @@ export function Sidebar({
     { icon: Kanban, label: "My Leads", to: "/sales/leads" },
     { icon: Layers3, label: "Lead Pool", to: "/sales/lead-pool" },
     { icon: ListTodo, label: "Planner", to: "/sales/planner" },
-    { icon: Plus, label: "New Lead", to: "/sales/new" }
+    { icon: NotebookPen, label: "Lead Log", to: "/sales/lead-log" }
   ];
 
-  const navItems = isAdmin ? adminNavItems : salesNavItems;
+  const externalSalesNavItems: NavItem[] = [
+    { icon: Kanban, label: "My Leads", to: "/sales/leads" },
+    { icon: NotebookPen, label: "Lead Log", to: "/sales/lead-log" }
+  ];
+
+  const salesAdminNavItems: NavItem[] = [
+    { icon: LayoutDashboard, label: "Team Overview", to: "/sales-admin" },
+    { icon: Users, label: "Sales Leads", to: "/sales-admin/leads" },
+    { icon: UserCog, label: "Sales Team", to: "/sales-admin/team" },
+    { icon: Target, label: "Team Quotas", to: "/sales-admin/quotas" },
+    { icon: ShieldCheck, label: "Activity", to: "/sales-admin/activity" }
+  ];
+
+  const navItems = isAdmin ? adminNavItems : isSalesAdmin ? salesAdminNavItems : isExternalSales ? externalSalesNavItems : salesNavItems;
 
   const sidebarContent = (
     <div className="flex h-full flex-col bg-surface border-r border-separator transition-all duration-300">

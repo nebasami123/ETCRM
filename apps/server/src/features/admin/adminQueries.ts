@@ -1,6 +1,7 @@
 import { ActivityType, LeadPhase, Prisma } from "@prisma/client";
 import { prisma } from "../../config/db.js";
 import { businessDate, endOfBusinessDay, parseBusinessDate, startOfBusinessDay } from "../../utils/dates.js";
+import { buildPipelineJourney } from "./pipelineJourney.js";
 const salesOnly = { role: "SALES" };
 
 /**
@@ -74,10 +75,12 @@ export async function getAdminSummary() {
 
 /** Full-population aggregates for overview charts (not page-limited). */
 export async function getAdminOverviewAggregates() {
-  const [localPhases, regPhases, localClaimedByPhase, regClaimedByPhase, activityGroups, salesUsers, live] =
+  const [localPhases, regPhases, localStages, regStages, localClaimedByPhase, regClaimedByPhase, activityGroups, salesUsers, live, stageEvents] =
     await Promise.all([
       prisma.lead.groupBy({ by: ["phase"], _count: { _all: true } }),
       prisma.registryLead.groupBy({ by: ["phase"], _count: { _all: true } }),
+      prisma.lead.findMany({ select: { id: true, pipelineStage: true, phase: true, leadSource: true } }),
+      prisma.registryLead.findMany({ select: { id: true, pipelineStage: true, phase: true, leadSource: true } }),
       prisma.lead.groupBy({
         by: ["claimedById", "phase"],
         where: { claimedById: { not: null } },
@@ -94,7 +97,11 @@ export async function getAdminOverviewAggregates() {
         select: { id: true, name: true },
         orderBy: { name: "asc" }
       }),
-      getLiveLeadUniverseSize()
+      getLiveLeadUniverseSize(),
+      prisma.activityEvent.findMany({
+        where: { leadId: { not: null }, type: { in: [ActivityType.LEAD_CREATED, ActivityType.PHASE_CHANGED] } },
+        select: { leadId: true, leadKind: true, metadata: true, fromPhase: true, toPhase: true }
+      })
     ]);
 
   const phaseGroups = [...localPhases, ...regPhases];
@@ -116,6 +123,11 @@ export async function getAdminOverviewAggregates() {
     phase,
     count: phase === LeadPhase.NEW ? newCount : crmPhaseCount(phase)
   }));
+
+  const journey = buildPipelineJourney([
+    ...localStages.map((lead) => ({ ...lead, kind: "LOCAL" })),
+    ...regStages.map((lead) => ({ ...lead, kind: "REGISTRY" }))
+  ], stageEvents, Math.max(0, universe - crmTotal));
 
   const outcomeByUser = new Map<string, { won: number; lost: number; pending: number }>();
   for (const row of claimedByPhaseGroups) {
@@ -144,20 +156,25 @@ export async function getAdminOverviewAggregates() {
     .map((g) => ({ type: g.type, count: g._count._all }))
     .sort((a, b) => b.count - a.count);
 
-  return { phaseCounts, agentOutcomes, activityMix };
+  return {
+    phaseCounts,
+    ...journey,
+    agentOutcomes,
+    activityMix
+  };
 }
 
 export async function listAdminSalesUsers() {
   return prisma.user.findMany({
-    where: salesOnly,
-    select: { id: true, name: true, email: true, role: true },
+    where: { ...salesOnly, OR: [{ banned: false }, { banned: null }] },
+    select: { id: true, name: true, email: true, role: true, salesType: true, banned: true },
     orderBy: { name: "asc" }
   });
 }
 
 export async function listAllAdminUsers() {
   return prisma.user.findMany({
-    select: { id: true, name: true, email: true, role: true },
+    select: { id: true, name: true, email: true, role: true, salesType: true, banned: true },
     orderBy: { name: "asc" }
   });
 }

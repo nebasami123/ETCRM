@@ -204,11 +204,6 @@ async function main() {
         createdById: adminId,
         claimedById: row.owner.id,
         claimedAt,
-        businessName: row.businessName,
-        businessRegion: row.region,
-        businessWoreda: row.subcity,
-        legalStatusNameEng: "PLC",
-        licenceNumber: `LIC-${pKey.slice(-6)}`
       }
     });
     await prisma.leadPhoneIndex.upsert({
@@ -265,7 +260,7 @@ async function main() {
         phoneKey: lead.phoneKey,
         phoneNumber: lead.phoneNumber,
         fullName: lead.fullName,
-        businessName: lead.businessName,
+        businessName: highCapital[i]!.businessName,
         capital: meta.capital,
         region: meta.region,
         subcity: meta.subcity,
@@ -307,7 +302,7 @@ async function main() {
         phoneKey: lead.phoneKey,
         phoneNumber: lead.phoneNumber,
         fullName: lead.fullName,
-        businessName: lead.businessName,
+        businessName: boleFocus[i]!.businessName,
         capital: meta.capital,
         region: meta.region,
         subcity: meta.subcity,
@@ -408,7 +403,7 @@ async function main() {
         phoneKey: lead.phoneKey,
         phoneNumber: lead.phoneNumber,
         fullName: lead.fullName,
-        businessName: lead.businessName,
+        businessName: meta.businessName,
         capital: meta.capital,
         region: meta.region,
         subcity: meta.subcity,
@@ -476,7 +471,7 @@ async function main() {
         phoneKey: lead.phoneKey,
         phoneNumber: lead.phoneNumber,
         fullName: lead.fullName,
-        businessName: lead.businessName,
+        businessName: meta.businessName,
         capital: meta.capital,
         region: meta.region,
         subcity: meta.subcity,

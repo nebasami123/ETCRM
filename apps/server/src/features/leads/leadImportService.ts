@@ -4,7 +4,7 @@ import csv from "csv-parser";
 import XLSX from "xlsx";
 import { LeadPhase, Prisma } from "@prisma/client";
 import { env } from "../../config/env.js";
-import { licenceKey, phoneKey } from "./leadService.js";
+import { phoneKey } from "./leadService.js";
 import { parseOptionalDate } from "../../utils/dates.js";
 
 export type LeadImportRow = Record<string, unknown>;
@@ -33,12 +33,6 @@ function normalizeImportedPhone(value: string) {
   const digits = value.replace(/\D/g, "");
   // Excel removes a leading zero from numeric Ethiopian landline/mobile values.
   return digits.length === 9 && /^[19]/.test(digits) ? `0${digits}` : value;
-}
-
-function normalizeImportedTin(value: string) {
-  // The reference export uses 10-digit TINs. Preserve this format when Excel
-  // has converted a zero-padded identifier into a number.
-  return /^\d{1,10}$/.test(value) ? value.padStart(10, "0") : value;
 }
 
 function parseImportedDate(value: string) {
@@ -83,15 +77,9 @@ export async function readLeadRows(file: Express.Multer.File): Promise<LeadImpor
 }
 
 export function buildLead(row: LeadImportRow, ownership: { createdById?: string | null } = {}): Prisma.LeadCreateManyInput | null {
-  const businessName = field(row, ["BusinessName", "Business Name"]);
-  const managerFName = field(row, ["ManagerFName", "Manager First Name"]);
-  const managerMName = field(row, ["ManagerMName", "Manager Middle Name"]);
-  const managerLName = field(row, ["ManagerLName", "Manager Last Name"]);
-  const managerName = [managerFName, managerMName, managerLName].filter(Boolean).join(" ");
-  const fullName = field(row, ["full name", "fullname", "name", "contact name"]) || businessName || managerName;
+  const fullName = field(row, ["full name", "fullname", "name", "contact name"]);
   const phoneNumber = normalizeImportedPhone(field(row, ["phone number", "phone", "mobile", "mobile number", "manager phone", "manager phone number", "manager mobile", "manager telephone", "business number", "Business Telephone", "telephone", "tel"]));
   if (!fullName || !phoneNumber) return null;
-  const licenceNumber = normalizeImportedTin(field(row, ["LicenceNumber", "License Number", "TIN"]));
   return {
     fullName,
     phoneNumber,
@@ -99,35 +87,10 @@ export function buildLead(row: LeadImportRow, ownership: { createdById?: string 
     email: field(row, ["email", "email address"]),
     // Imports always enter the queue as new leads, irrespective of source-system status values.
     phase: LeadPhase.NEW,
+    pipelineStage: "Lead",
     createdById: ownership.createdById || null,
     appointmentDate: parseImportedDate(field(row, ["appointment date", "appointmentdate", "appointment"])),
-    nextFollowUpAt: parseImportedDate(field(row, ["follow up", "followup", "next follow up"])),
-    dateRegistered: parseImportedDate(field(row, ["DateRegistered", "Date Registered"])),
-    legalStatusNameEng: field(row, ["LegalStatusNameEng", "Business Type"]) || null,
-    legalStatusNameAmh: field(row, ["LegalStatusNameAmh"]) || null,
-    status: field(row, ["Status"]) || null,
-    licenceNumber: licenceNumber || null,
-    licenceKey: licenceKey(licenceNumber),
-    renewedTo: parseImportedDate(field(row, ["RenewedTo", "Renewed To"])),
-    siteId: field(row, ["SiteID"]) || null,
-    businessName: businessName || null,
-    businessNameAmharic: field(row, ["BusinessNameAmharic"]) || null,
-    managerFName: managerFName || null,
-    managerMName: managerMName || null,
-    managerLName: managerLName || null,
-    description: field(row, ["description"]) || null,
-    code: field(row, ["Code", "Sector"]) || null,
-    englishDescription: field(row, ["EnglishDescription", "Sector Category"]) || null,
-    amDescription: field(row, ["Amdiscrption"]) || null,
-    subGroup: field(row, ["SubGroup"]) || null,
-    subGroupAm: field(row, ["SubGroupAM"]) || null,
-    subGroupEn: field(row, ["SubGroupEN"]) || null,
-    businessRegion: field(row, ["Business Region", "Region"]) || null,
-    businessZone: field(row, ["Business Zones", "Zone"]) || null,
-    businessWoreda: field(row, ["Business Woreda", "Subcity", "Woreda"]) || null,
-    businessKebele: field(row, ["Business Kebele", "Kebele"]) || null,
-    houseNumber: field(row, ["HousNum", "House Number"]) || null,
-    businessTelephone: field(row, ["Business Telephone", "Business Number"]) || null
+    nextFollowUpAt: parseImportedDate(field(row, ["follow up", "followup", "next follow up"]))
   };
 }
 

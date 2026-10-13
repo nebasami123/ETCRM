@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { UserSummary, LeadFormData } from "../../types";
 import { leadFormSchema } from "../../lib/validations/leads";
+import { leadSourceOptions, normalizeLeadSource } from "../../lib/constants/lead-sources";
 import { FormField } from "./form-field";
 import { Card } from "../ui/card";
 import { CustomSelect } from "../ui/custom-select";
@@ -11,10 +12,8 @@ interface LeadFormProps {
     fullName: string;
     phoneNumber: string;
     email: string;
-    businessName: string;
-    licenceNumber: string;
-    businessRegion: string;
-    businessWoreda: string;
+    leadSource?: string;
+    leadSourceDetail?: string | null;
     appointmentDate?: string;
     assignedToId?: string;
   };
@@ -23,23 +22,6 @@ interface LeadFormProps {
   isLoading?: boolean;
   showAssignment?: boolean;
 }
-
-const ethiopianRegions = [
-  { value: "Addis Ababa", label: "Addis Ababa" },
-  { value: "Afar", label: "Afar" },
-  { value: "Amhara", label: "Amhara" },
-  { value: "Benishangul-Gumuz", label: "Benishangul-Gumuz" },
-  { value: "Central Ethiopia", label: "Central Ethiopia" },
-  { value: "Dire Dawa", label: "Dire Dawa" },
-  { value: "Gambela", label: "Gambela" },
-  { value: "Harari", label: "Harari" },
-  { value: "Oromia", label: "Oromia" },
-  { value: "Sidama", label: "Sidama" },
-  { value: "Somali", label: "Somali" },
-  { value: "South Ethiopia", label: "South Ethiopia" },
-  { value: "South West Ethiopia Peoples", label: "South West Ethiopia Peoples" },
-  { value: "Tigray", label: "Tigray" }
-];
 
 export function LeadForm({
   title = "Create New Lead",
@@ -52,10 +34,9 @@ export function LeadForm({
   const [fullName, setFullName] = useState(initialValues?.fullName || "");
   const [phoneNumber, setPhoneNumber] = useState(initialValues?.phoneNumber || "");
   const [email, setEmail] = useState(initialValues?.email || "");
-  const [businessName, setBusinessName] = useState(initialValues?.businessName || "");
-  const [licenceNumber, setLicenceNumber] = useState(initialValues?.licenceNumber || "");
-  const [businessRegion, setBusinessRegion] = useState(initialValues?.businessRegion || "");
-  const [businessWoreda, setBusinessWoreda] = useState(initialValues?.businessWoreda || "");
+  const initialLeadSource = normalizeLeadSource(initialValues?.leadSource);
+  const [leadSource, setLeadSource] = useState(initialLeadSource.source);
+  const [leadSourceDetail, setLeadSourceDetail] = useState(initialLeadSource.source === "Other" ? (initialValues?.leadSourceDetail || initialLeadSource.detail) : "");
   const [appointmentDate, setAppointmentDate] = useState(initialValues?.appointmentDate || "");
   const [assignedToId, setAssignedToId] = useState(initialValues?.assignedToId || "");
   
@@ -69,10 +50,8 @@ export function LeadForm({
       fullName,
       phoneNumber,
       email,
-      businessName,
-      licenceNumber,
-      businessRegion,
-      businessWoreda,
+      leadSource,
+      leadSourceDetail: leadSource === "Other" ? leadSourceDetail.trim() : "",
       appointmentDate: appointmentDate || null,
       ...(showAssignment ? { assignedToId } : {})
     };
@@ -95,10 +74,8 @@ export function LeadForm({
         setFullName("");
         setPhoneNumber("");
         setEmail("");
-        setBusinessName("");
-        setLicenceNumber("");
-        setBusinessRegion("");
-        setBusinessWoreda("");
+        setLeadSource("");
+        setLeadSourceDetail("");
         setAppointmentDate("");
         setAssignedToId("");
       }
@@ -107,16 +84,11 @@ export function LeadForm({
     }
   };
 
-  const regionOptions = [...ethiopianRegions];
-  if (businessRegion && !regionOptions.some((opt) => opt.value === businessRegion)) {
-    regionOptions.unshift({ value: businessRegion, label: businessRegion });
-  }
-
   return (
     <Card className="rounded-xl border border-separator bg-surface p-5 shadow-surface">
       <h3 className="text-sm font-bold text-foreground">{title}</h3>
       
-      <form onSubmit={handleSubmit} className="mt-4 grid gap-4 sm:grid-cols-2">
+      <form noValidate onSubmit={handleSubmit} className="mt-4 grid gap-4 sm:grid-cols-2">
         <FormField label="Full Name" error={errors.fullName} required>
           <input
             type="text"
@@ -147,44 +119,32 @@ export function LeadForm({
           />
         </FormField>
 
-        <FormField label="Business Name" error={errors.businessName}>
-          <input
-            type="text"
-            value={businessName}
-            onChange={(e) => setBusinessName(e.target.value)}
-            className="w-full rounded-lg border border-field-border bg-field-background px-3 py-2 text-xs text-field-foreground placeholder:text-field-placeholder focus:border-accent focus:outline-none"
-            placeholder="Commercial Co."
-          />
-        </FormField>
-
-        <FormField label="License Number" error={errors.licenceNumber}>
-          <input
-            type="text"
-            value={licenceNumber}
-            onChange={(e) => setLicenceNumber(e.target.value)}
-            className="w-full rounded-lg border border-field-border bg-field-background px-3 py-2 text-xs text-field-foreground placeholder:text-field-placeholder focus:border-accent focus:outline-none font-mono"
-            placeholder="LIC-123456"
-          />
-        </FormField>
-
-        <FormField label="Business Region" error={errors.businessRegion}>
+        <FormField label="Lead Source" error={errors.leadSource}>
           <CustomSelect
-            value={businessRegion}
-            onChange={(val) => setBusinessRegion(val)}
-            options={regionOptions}
-            placeholder="Select Region..."
+            value={leadSource}
+            onChange={(value) => {
+              setLeadSource(value);
+              if (value !== "Other") setLeadSourceDetail("");
+            }}
+            options={leadSourceOptions}
+            placeholder="Select lead source..."
+            searchable
+            ariaLabel="Lead source"
           />
         </FormField>
 
-        <FormField label="Subcity / Woreda" error={errors.businessWoreda}>
-          <input
-            type="text"
-            value={businessWoreda}
-            onChange={(e) => setBusinessWoreda(e.target.value)}
-            className="w-full rounded-lg border border-field-border bg-field-background px-3 py-2 text-xs text-field-foreground placeholder:text-field-placeholder focus:border-accent focus:outline-none"
-            placeholder="Bole, Woreda 03, …"
-          />
-        </FormField>
+        {leadSource === "Other" ? (
+          <FormField label="Please specify" error={errors.leadSourceDetail}>
+            <input
+              type="text"
+              value={leadSourceDetail}
+              onChange={(event) => setLeadSourceDetail(event.target.value)}
+              maxLength={200}
+              className="w-full rounded-lg border border-field-border bg-field-background px-3 py-2 text-xs text-field-foreground placeholder:text-field-placeholder focus:border-accent focus:outline-none"
+              placeholder="Describe where this lead came from"
+            />
+          </FormField>
+        ) : null}
 
         <FormField label="Initial Appointment" error={errors.appointmentDate}>
           <input

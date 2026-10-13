@@ -75,6 +75,22 @@ export function ActivityTimeline({ activities, onRefresh, isLoading = false }: A
       if (data.appointmentDate) return `Appointment set for ${formatDateTime(data.appointmentDate as string)}`;
       if (data.nextFollowUpAt) return `Follow-up set for ${formatDateTime(data.nextFollowUpAt as string)}`;
       if (data.reason) return `Reason: ${String(data.reason)}`;
+      if (data.changes && typeof data.changes === "object") {
+        const fieldLabels: Record<string, string> = {
+          fullName: "Name", phoneNumber: "Phone", email: "Email", leadSource: "Source",
+          leadSourceDetail: "Source details", appointmentDate: "Appointment", nextFollowUpAt: "Follow-up"
+        };
+        const removedLeadFields = new Set([
+          "dateRegistered", "legalStatusNameEng", "legalStatusNameAmh", "status", "licenceNumber", "licenceKey",
+          "renewedTo", "siteId", "businessName", "businessNameAmharic", "managerFName", "managerMName", "managerLName",
+          "description", "code", "englishDescription", "amDescription", "subGroup", "subGroupAm", "subGroupEn",
+          "businessRegion", "businessZone", "businessWoreda", "businessKebele", "houseNumber", "businessTelephone"
+        ]);
+        return Object.entries(data.changes as Record<string, { from?: unknown; to?: unknown }>)
+          .filter(([field]) => !removedLeadFields.has(field))
+          .map(([field, change]) => `${fieldLabels[field] ?? field}: ${String(change.from || "—")} → ${String(change.to || "—")}`)
+          .join(" · ");
+      }
       return "";
     } catch {
       return "";

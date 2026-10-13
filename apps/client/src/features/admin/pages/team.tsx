@@ -1,9 +1,11 @@
 import { useState } from "react";
-import { UserPlus, KeyRound, Mail, User } from "lucide-react";
+import { UserPlus, KeyRound, Mail, User, UserRoundX } from "lucide-react";
 import { useAdminTeam } from "../hooks/use-admin-team";
 import { FormField } from "../../../components/forms/form-field";
 import { createUserSchema, resetPasswordSchema } from "../../../lib/validations/users";
 import { Card } from "../../../components/ui/card";
+import { CustomSelect } from "../../../components/ui/custom-select";
+import type { SalesType } from "../../../types";
 
 export function AdminTeam() {
   const teamHook = useAdminTeam();
@@ -12,6 +14,8 @@ export function AdminTeam() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [role, setRole] = useState<"SALES" | "SALES_ADMIN">("SALES");
+  const [salesType, setSalesType] = useState<SalesType>("INTERNAL");
   const [createErrors, setCreateErrors] = useState<Record<string, string>>({});
 
   // Reset password state
@@ -34,7 +38,7 @@ export function AdminTeam() {
     }
 
     try {
-      await teamHook.createSalesUser({ name, email, password });
+      await teamHook.createSalesUser({ name, email, password, role, salesType });
       setName("");
       setEmail("");
       setPassword("");
@@ -83,20 +87,21 @@ export function AdminTeam() {
               <thead>
                 <tr className="border-b border-separator bg-default/20 text-muted font-bold uppercase tracking-wider text-[10px]">
                   <th className="px-5 py-3">User</th>
-                  <th className="px-5 py-3 text-center">Role</th>
+                  <th className="px-5 py-3 text-center">Role / Type</th>
+                  <th className="px-5 py-3 text-center">Status</th>
                   <th className="px-5 py-3 text-center">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-separator text-foreground font-medium">
                 {teamHook.isLoading ? (
                   <tr>
-                    <td colSpan={3} className="px-5 py-8 text-center text-muted">
+                    <td colSpan={4} className="px-5 py-8 text-center text-muted">
                       Loading team roster...
                     </td>
                   </tr>
                 ) : teamHook.team.length === 0 ? (
                   <tr>
-                    <td colSpan={3} className="px-5 py-8 text-center text-muted">
+                    <td colSpan={4} className="px-5 py-8 text-center text-muted">
                       No sales agents registered yet.
                     </td>
                   </tr>
@@ -114,8 +119,12 @@ export function AdminTeam() {
                       </td>
                       <td className="px-5 py-3.5 text-center text-xs font-mono font-bold text-accent uppercase">
                         {member.role || "SALES"}
+                        {member.role === "SALES" && <div className="mx-auto mt-1 w-32"><CustomSelect value={member.salesType || "INTERNAL"} onChange={(value) => void teamHook.setSalesType(member.id, value as SalesType)} options={[{ value: "INTERNAL", label: "Internal" }, { value: "EXTERNAL", label: "External" }]} size="sm" /></div>}
                       </td>
+                      <td className="px-5 py-3.5 text-center text-xs"><span className={member.banned ? "text-danger" : "text-success"}>{member.banned ? "Inactive" : "Active"}</span></td>
                       <td className="px-5 py-3.5 text-center">
+                        {member.role !== "ADMIN" && <button type="button" disabled={teamHook.saving} onClick={() => void teamHook.setUserStatus(member.id, Boolean(member.banned))} className="btn-interactive mr-2 inline-flex items-center gap-1 px-2 py-1 text-[10px] font-bold rounded-lg border border-border text-foreground hover:bg-default"><UserRoundX className="h-3 w-3" />{member.banned ? "Reactivate" : "Deactivate"}</button>}
+                        {member.role !== "ADMIN" &&
                         <button
                           type="button"
                           onClick={() => {
@@ -127,7 +136,7 @@ export function AdminTeam() {
                         >
                           <KeyRound className="h-3 w-3 shrink-0" />
                           Reset Password
-                        </button>
+                        </button>}
                       </td>
                     </tr>
                   ))
@@ -141,13 +150,19 @@ export function AdminTeam() {
         <Card className="rounded-xl border border-separator bg-surface p-5 shadow-surface h-fit">
           <div className="flex items-center gap-2 mb-3 text-accent">
             <UserPlus className="h-4.5 w-4.5" />
-            <h3 className="text-xs font-bold text-foreground uppercase tracking-wider">Register Sales Agent</h3>
+            <h3 className="text-xs font-bold text-foreground uppercase tracking-wider">Create team account</h3>
           </div>
           <p className="text-xs text-muted leading-relaxed mb-4">
-            Create account credentials for a new sales team member.
+            Add a sales representative or a scoped Sales Admin.
           </p>
 
           <form onSubmit={handleCreateUser} className="space-y-4">
+            <FormField label="Account type" required>
+              <CustomSelect value={role} onChange={(value) => setRole(value as "SALES" | "SALES_ADMIN")} options={[{ value: "SALES", label: "Sales representative" }, { value: "SALES_ADMIN", label: "Sales Admin" }]} />
+            </FormField>
+            {role === "SALES" && <FormField label="Reporting type" required>
+              <CustomSelect value={salesType} onChange={(value) => setSalesType(value as SalesType)} options={[{ value: "INTERNAL", label: "Internal" }, { value: "EXTERNAL", label: "External" }]} />
+            </FormField>}
             <FormField label="Full Name" error={createErrors.name} required>
               <div className="relative">
                 <User className="absolute left-3 top-2.5 h-4 w-4 text-muted" />
@@ -195,7 +210,7 @@ export function AdminTeam() {
               disabled={teamHook.saving}
               className="btn-interactive w-full px-4 py-2 text-xs font-bold bg-accent text-accent-foreground rounded-lg hover:opacity-90 disabled:opacity-50"
             >
-              {teamHook.saving ? "Registering..." : "Add Agent"}
+              {teamHook.saving ? "Creating account..." : role === "SALES_ADMIN" ? "Create Sales Admin" : "Add Agent"}
             </button>
           </form>
         </Card>

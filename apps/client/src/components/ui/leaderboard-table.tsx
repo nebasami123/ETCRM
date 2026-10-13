@@ -19,6 +19,7 @@ export function LeaderboardTable({ data, highlightUserId }: LeaderboardTableProp
           <tr className="border-b border-separator text-muted uppercase tracking-wider">
             <th className="text-left py-2 px-2 font-bold">#</th>
             <th className="text-left py-2 px-2 font-bold">Agent</th>
+            <th className="text-left py-2 px-2 font-bold">Type</th>
             <th className="text-right py-2 px-2 font-bold">Claimed</th>
             <th className="text-right py-2 px-2 font-bold">Won</th>
             <th className="text-right py-2 px-2 font-bold">Lost</th>
@@ -38,6 +39,7 @@ export function LeaderboardTable({ data, highlightUserId }: LeaderboardTableProp
               >
                 <td className="py-2 px-2 text-muted">{i + 1}</td>
                 <td className="py-2 px-2 text-foreground">{entry.name}</td>
+                <td className="py-2 px-2 text-muted">{entry.salesType === "EXTERNAL" ? "External" : "Internal"}</td>
                 <td className="py-2 px-2 text-right text-foreground">{entry.claimedLeads}</td>
                 <td className="py-2 px-2 text-right text-success">{entry.conversions}</td>
                 <td className="py-2 px-2 text-right text-danger">{entry.losses}</td>

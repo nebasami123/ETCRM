@@ -10,6 +10,11 @@ export const auth = betterAuth({
   secret: env.BETTER_AUTH_SECRET,
   trustedOrigins: allowedOrigins,
   database: prismaAdapter(prisma, { provider: "postgresql" }),
+  user: {
+    additionalFields: {
+      salesType: { type: ["INTERNAL", "EXTERNAL"], required: false, input: false }
+    }
+  },
   emailAndPassword: {
     enabled: true,
     disableSignUp: true,
@@ -33,7 +38,8 @@ export const auth = betterAuth({
       adminRoles: ["ADMIN"],
       roles: {
         ADMIN: defaultRoles.admin,
-        SALES: defaultRoles.user
+        SALES: defaultRoles.user,
+        SALES_ADMIN: defaultRoles.user
       },
       bannedUserMessage: "Your ETCRM account is disabled. Contact an administrator."
     })

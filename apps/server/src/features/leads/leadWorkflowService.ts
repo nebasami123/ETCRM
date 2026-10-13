@@ -2,7 +2,7 @@ import { ActivityType, ClaimRequestStatus, LeadKind, LeadPhase, Prisma } from "@
 import { prisma } from "../../config/db.js";
 import { parseOptionalDate } from "../../utils/dates.js";
 import { buildLead, prepareLeadImport, readLeadRows, removeUpload, type SkippedLeadRow } from "./leadImportService.js";
-import { leadDetailInclude, licenceKey, phoneKey } from "./leadService.js";
+import { leadDetailInclude, phoneKey } from "./leadService.js";
 import {
   loadWorkflowShell,
   localLeadInclude,
@@ -12,6 +12,7 @@ import {
   resolveLeadRef
 } from "./leadIdentity.js";
 import { getLeadViewById, localLeadToView, registryLeadToView, type LeadView } from "./leadView.js";
+import { phaseForPipelineStage, pipelineStageForPhaseChange, salesPipelineStages, type SalesPipelineStage } from "./pipelineStage.js";
 
 type Db = Prisma.TransactionClient;
 
@@ -21,42 +22,51 @@ export type LeadInput = {
   email?: string;
   appointmentDate?: string | null;
   nextFollowUpAt?: string | null;
-  businessName?: string;
-  licenceNumber?: string;
-  businessRegion?: string;
-  businessZone?: string;
-  businessWoreda?: string;
-  businessKebele?: string;
-  houseNumber?: string;
-  businessTelephone?: string;
+  pipelineStage?: string;
+  leadSource?: string;
+  leadSourceDetail?: string;
+  note?: string;
 };
 
 function leadData(input: LeadInput, actorId: string, claimActor: boolean): Prisma.LeadUncheckedCreateInput {
-  const licenceNumber = input.licenceNumber?.trim() || null;
+  const pipelineStage = input.pipelineStage && salesPipelineStages.includes(input.pipelineStage as SalesPipelineStage)
+    ? input.pipelineStage as SalesPipelineStage
+    : "Lead";
   return {
     fullName: input.fullName.trim(),
     phoneNumber: input.phoneNumber.trim(),
     phoneKey: phoneKey(input.phoneNumber),
     email: input.email?.trim() || "",
-    licenceNumber,
-    licenceKey: licenceKey(licenceNumber),
+    phase: input.pipelineStage ? phaseForPipelineStage(pipelineStage) : undefined,
+    pipelineStage,
+    leadSource: input.leadSource?.trim() || null,
+    leadSourceDetail: input.leadSourceDetail?.trim() || null,
     createdById: actorId,
     claimedById: claimActor ? actorId : null,
     claimedAt: claimActor ? new Date() : null,
     appointmentDate: parseOptionalDate(input.appointmentDate),
-    nextFollowUpAt: parseOptionalDate(input.nextFollowUpAt),
-    businessName: input.businessName?.trim() || null,
-    businessRegion: input.businessRegion?.trim() || null,
-    businessZone: input.businessZone?.trim() || null,
-    businessWoreda: input.businessWoreda?.trim() || null,
-    businessKebele: input.businessKebele?.trim() || null,
-    houseNumber: input.houseNumber?.trim() || null,
-    businessTelephone: input.businessTelephone?.trim() || null
+    nextFollowUpAt: parseOptionalDate(input.nextFollowUpAt)
   };
 }
 
 async function event(db: Db, input: Prisma.ActivityEventUncheckedCreateInput) {
   return db.activityEvent.create({ data: input });
+}
+
+async function findLeadByPhoneKey(phoneKeyValue: string) {
+  const indexed = await prisma.leadPhoneIndex.findUnique({ where: { phoneKey: phoneKeyValue } });
+  if (indexed?.kind === LeadKind.LOCAL) {
+    const lead = await prisma.lead.findUnique({ where: { id: indexed.leadId }, select: { id: true, fullName: true, phoneNumber: true } });
+    if (lead) return lead;
+  } else if (indexed?.kind === LeadKind.REGISTRY) {
+    const lead = await prisma.registryLead.findUnique({ where: { id: indexed.leadId }, select: { id: true, displayName: true, phoneNumber: true } });
+    if (lead) return { id: lead.id, fullName: lead.displayName, phoneNumber: lead.phoneNumber };
+  }
+
+  const local = await prisma.lead.findUnique({ where: { phoneKey: phoneKeyValue }, select: { id: true, fullName: true, phoneNumber: true } });
+  if (local) return local;
+  const registry = await prisma.registryLead.findUnique({ where: { phoneKey: phoneKeyValue }, select: { id: true, displayName: true, phoneNumber: true } });
+  return registry ? { id: registry.id, fullName: registry.displayName, phoneNumber: registry.phoneNumber } : null;
 }
 
 function summarizeSkippedRows(skipped: SkippedLeadRow[]) {
@@ -72,21 +82,22 @@ export function importEmptyMessage(result: Pick<ImportResult, "skipped" | "skipp
 
 export async function createLead({ input, actorId, claimActor = false }: { input: LeadInput; actorId: string; claimActor?: boolean }) {
   const data = leadData(input, actorId, claimActor);
-  return prisma.$transaction(async (db) => {
+  try {
+    return await prisma.$transaction(async (db) => {
     const taken = await db.leadPhoneIndex.findUnique({ where: { phoneKey: data.phoneKey } });
     if (taken) {
       const duplicate =
         taken.kind === LeadKind.LOCAL
           ? await db.lead.findUnique({
               where: { id: taken.leadId },
-              select: { id: true, fullName: true, phoneNumber: true, licenceNumber: true }
+              select: { id: true, fullName: true, phoneNumber: true }
             })
           : await db.registryLead.findUnique({
               where: { id: taken.leadId },
               select: { id: true, displayName: true, phoneNumber: true }
             }).then((row) =>
               row
-                ? { id: row.id, fullName: row.displayName, phoneNumber: row.phoneNumber, licenceNumber: null as string | null }
+                ? { id: row.id, fullName: row.displayName, phoneNumber: row.phoneNumber }
                 : null
             );
       if (duplicate) return { status: "duplicate" as const, duplicate };
@@ -99,12 +110,86 @@ export async function createLead({ input, actorId, claimActor = false }: { input
       leadKind: LeadKind.LOCAL,
       leadId: lead.id,
       type: ActivityType.LEAD_CREATED,
-      metadata: { claimedOnCreate: claimActor }
+      metadata: { claimedOnCreate: claimActor, pipelineStage: input.pipelineStage || "Lead", leadSource: input.leadSource?.trim() || null, leadSourceDetail: input.leadSourceDetail?.trim() || null }
     });
+    if (input.note?.trim()) {
+      await event(db, { actorId, leadKind: LeadKind.LOCAL, leadId: lead.id, type: ActivityType.CALL_NOTE, note: input.note.trim() });
+    }
     if (claimActor) {
       await event(db, { actorId, leadKind: LeadKind.LOCAL, leadId: lead.id, type: ActivityType.LEAD_CLAIMED });
     }
     return { status: "ok" as const, lead: localLeadToView(lead) };
+    });
+  } catch (error) {
+    // The unique phone index remains the final arbiter when two salespeople
+    // submit the same number at nearly the same time. Turn that race into the
+    // same duplicate result as the preflight check so the API can warn them.
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+      const duplicate = await findLeadByPhoneKey(data.phoneKey);
+      if (duplicate) return { status: "duplicate" as const, duplicate };
+    }
+    throw error;
+  }
+}
+
+export async function updateLeadLog({
+  leadId,
+  actorId,
+  pipelineStage,
+  note,
+  requireOwnership = false
+}: {
+  leadId: string;
+  actorId: string;
+  pipelineStage: SalesPipelineStage;
+  note: string;
+  requireOwnership?: boolean;
+}) {
+  if (requireOwnership) {
+    const ownership = await requireClaimer(leadId, actorId);
+    if (ownership.status === "not-found") return { status: "not-found" as const };
+    if (ownership.status === "forbidden") return { status: "forbidden" as const, claimedById: ownership.claimedById };
+  }
+  const ref = await resolveLeadRef(leadId);
+  if (!ref) return { status: "not-found" as const };
+  const phase = phaseForPipelineStage(pipelineStage);
+
+  return prisma.$transaction(async (db) => {
+    const current = ref.kind === LeadKind.LOCAL
+      ? await db.lead.findUnique({ where: { id: ref.id }, select: { phase: true, pipelineStage: true, claimedById: true } })
+      : await db.registryLead.findUnique({ where: { id: ref.id }, select: { phase: true, pipelineStage: true, claimedById: true } });
+    if (!current) return { status: "not-found" as const };
+    if (pipelineStage === "Closed Won" && current.phase !== LeadPhase.CLOSED_WON) {
+      return { status: "closed-won-forbidden" as const };
+    }
+
+    if (ref.kind === LeadKind.LOCAL) {
+      const updated = await db.lead.update({
+        where: { id: ref.id },
+        data: { pipelineStage, phase },
+        include: localLeadInclude
+      });
+      await event(db, {
+        actorId, leadKind: LeadKind.LOCAL, leadId: ref.id, type: ActivityType.PHASE_CHANGED,
+        fromPhase: current.phase, toPhase: phase,
+        metadata: { pipelineStage, fromPipelineStage: current.pipelineStage }
+      });
+      await event(db, { actorId, leadKind: LeadKind.LOCAL, leadId: ref.id, type: ActivityType.CALL_NOTE, note: note.trim() });
+      return { status: "ok" as const, lead: localLeadToView(updated) };
+    }
+
+    const updated = await db.registryLead.update({
+      where: { id: ref.id },
+      data: { pipelineStage, phase },
+      include: registryLeadInclude
+    });
+    await event(db, {
+      actorId, leadKind: LeadKind.REGISTRY, leadId: ref.id, type: ActivityType.PHASE_CHANGED,
+      fromPhase: current.phase, toPhase: phase,
+      metadata: { pipelineStage, fromPipelineStage: current.pipelineStage }
+    });
+    await event(db, { actorId, leadKind: LeadKind.REGISTRY, leadId: ref.id, type: ActivityType.CALL_NOTE, note: note.trim() });
+    return { status: "ok" as const, lead: registryLeadToView(updated) };
   });
 }
 
@@ -360,7 +445,7 @@ export async function updateLeadPhase({
     if (ref.kind === LeadKind.LOCAL) {
       const existing = await db.lead.findUnique({ where: { id: ref.id } });
       if (!existing) return { status: "not-found" as const };
-      const updated = await db.lead.update({ where: { id: ref.id }, data: { phase }, include: localLeadInclude });
+      const updated = await db.lead.update({ where: { id: ref.id }, data: { phase, pipelineStage: pipelineStageForPhaseChange(phase, existing.pipelineStage) }, include: localLeadInclude });
       await event(db, {
         actorId,
         leadKind: LeadKind.LOCAL,
@@ -368,6 +453,7 @@ export async function updateLeadPhase({
         type: ActivityType.PHASE_CHANGED,
         fromPhase: existing.phase,
         toPhase: phase,
+        metadata: { pipelineStage: updated.pipelineStage, fromPipelineStage: existing.pipelineStage },
         creditedUserId: phase === LeadPhase.CLOSED_WON
           ? creditedUserId || actorId
           : phase === LeadPhase.CLOSED_LOST
@@ -381,7 +467,7 @@ export async function updateLeadPhase({
     if (!existing) return { status: "not-found" as const };
     const updated = await db.registryLead.update({
       where: { id: ref.id },
-      data: { phase },
+      data: { phase, pipelineStage: pipelineStageForPhaseChange(phase, existing.pipelineStage) },
       include: registryLeadInclude
     });
     await event(db, {
@@ -391,6 +477,7 @@ export async function updateLeadPhase({
       type: ActivityType.PHASE_CHANGED,
       fromPhase: existing.phase,
       toPhase: phase,
+      metadata: { pipelineStage: updated.pipelineStage, fromPipelineStage: existing.pipelineStage },
       creditedUserId: phase === LeadPhase.CLOSED_WON
         ? creditedUserId || actorId
         : phase === LeadPhase.CLOSED_LOST
@@ -482,27 +569,70 @@ export async function updateLeadSchedule({
   });
 }
 
-export async function updateLead({ leadId, input, actorId }: { leadId: string; input: LeadInput; actorId: string }) {
+export async function updateLead({ leadId, input, actorId, requireOwnership = false }: { leadId: string; input: LeadInput; actorId: string; requireOwnership?: boolean }) {
   const ref = await resolveLeadRef(leadId);
   if (!ref) return { status: "not-found" as const };
+  if (requireOwnership) {
+    const ownership = await requireClaimer(leadId, actorId);
+    if (ownership.status === "not-found") return { status: "not-found" as const };
+    if (ownership.status === "forbidden") return { status: "forbidden" as const, claimedById: ownership.claimedById };
+  }
   if (ref.kind === LeadKind.REGISTRY) {
     return { status: "invalid" as const, message: "Registry leads are directory-backed and cannot be edited here" };
   }
 
-  const licenceNumber = input.licenceNumber?.trim() || null;
   const pKey = phoneKey(input.phoneNumber);
-  const lKey = licenceKey(licenceNumber);
 
   return prisma.$transaction(async (db) => {
     const existing = await db.lead.findUnique({ where: { id: ref.id } });
     if (!existing) return { status: "not-found" as const };
+
+    const preserveMinutePrecision = (value: string | null | undefined, previous: Date | null) => {
+      if (value === undefined) return previous;
+      const parsed = parseOptionalDate(value);
+      if (parsed && previous && Math.floor(parsed.getTime() / 60_000) === Math.floor(previous.getTime() / 60_000)) return previous;
+      return parsed;
+    };
+    const appointmentDate = preserveMinutePrecision(input.appointmentDate, existing.appointmentDate);
+    const nextFollowUpAt = preserveMinutePrecision(input.nextFollowUpAt, existing.nextFollowUpAt);
+    const values = {
+      fullName: input.fullName.trim(),
+      phoneNumber: input.phoneNumber.trim(),
+      email: input.email?.trim() || "",
+      leadSource: input.leadSource?.trim() || null,
+      leadSourceDetail: input.leadSourceDetail?.trim() || null,
+      appointmentDate,
+      nextFollowUpAt
+    };
+    const priorValues = {
+      fullName: existing.fullName,
+      phoneNumber: existing.phoneNumber,
+      email: existing.email,
+      leadSource: existing.leadSource,
+      leadSourceDetail: existing.leadSourceDetail,
+      appointmentDate: existing.appointmentDate,
+      nextFollowUpAt: existing.nextFollowUpAt
+    };
+    const changes = Object.fromEntries(
+      Object.entries(values)
+        .filter(([key, value]) => {
+          const previous = priorValues[key as keyof typeof priorValues];
+          const normalize = (item: unknown) => item instanceof Date ? item.toISOString() : item;
+          return normalize(value) !== normalize(previous);
+        })
+        .map(([key, value]) => {
+          const previous = priorValues[key as keyof typeof priorValues];
+          const serialize = (item: unknown) => item instanceof Date ? item.toISOString() : item;
+          return [key, { from: serialize(previous), to: serialize(value) }];
+        })
+    );
 
     if (pKey !== existing.phoneKey) {
       const taken = await db.leadPhoneIndex.findUnique({ where: { phoneKey: pKey } });
       if (taken && taken.leadId !== ref.id) {
         return {
           status: "duplicate" as const,
-          duplicate: { id: taken.leadId, fullName: "", phoneNumber: input.phoneNumber, licenceNumber: null }
+          duplicate: { id: taken.leadId, fullName: "", phoneNumber: input.phoneNumber }
         };
       }
     }
@@ -510,21 +640,8 @@ export async function updateLead({ leadId, input, actorId }: { leadId: string; i
     const updated = await db.lead.update({
       where: { id: ref.id },
       data: {
-        fullName: input.fullName.trim(),
-        phoneNumber: input.phoneNumber.trim(),
+        ...values,
         phoneKey: pKey,
-        email: input.email?.trim() || "",
-        licenceNumber,
-        licenceKey: lKey,
-        appointmentDate: parseOptionalDate(input.appointmentDate),
-        nextFollowUpAt: parseOptionalDate(input.nextFollowUpAt),
-        businessName: input.businessName?.trim() || null,
-        businessRegion: input.businessRegion?.trim() || null,
-        businessZone: input.businessZone?.trim() || null,
-        businessWoreda: input.businessWoreda?.trim() || null,
-        businessKebele: input.businessKebele?.trim() || null,
-        houseNumber: input.houseNumber?.trim() || null,
-        businessTelephone: input.businessTelephone?.trim() || null
       },
       include: localLeadInclude
     });
@@ -538,14 +655,16 @@ export async function updateLead({ leadId, input, actorId }: { leadId: string; i
       });
     }
 
-    await event(db, {
-      actorId,
-      leadKind: LeadKind.LOCAL,
-      leadId: ref.id,
-      type: ActivityType.LEAD_UPDATED,
-      note: "Lead details updated",
-      metadata: { source: "admin-edit" }
-    });
+    if (Object.keys(changes).length) {
+      await event(db, {
+        actorId,
+        leadKind: LeadKind.LOCAL,
+        leadId: ref.id,
+        type: ActivityType.LEAD_UPDATED,
+        note: "Lead details edited",
+        metadata: { source: requireOwnership ? "sales-edit" : "admin-edit", changes: changes as Prisma.InputJsonObject }
+      });
+    }
 
     return { status: "ok" as const, lead: localLeadToView(updated) };
   });

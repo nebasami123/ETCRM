@@ -23,7 +23,7 @@ export function ProtectedRoute({ children, role }: ProtectedRouteProps) {
   }
 
   if (user.role !== role) {
-    return <Navigate to={user.role === "ADMIN" ? "/admin" : "/sales"} replace />;
+    return <Navigate to={user.role === "ADMIN" ? "/admin" : user.role === "SALES_ADMIN" ? "/sales-admin" : user.salesType === "EXTERNAL" ? "/sales/lead-log" : "/sales"} replace />;
   }
 
   return <>{children}</>;

@@ -220,7 +220,7 @@ describe("lead workflow integration", () => {
 
   itDb("records LEAD_UPDATED for admin detail edits, not CALL_NOTE", async () => {
     const created = await createLead({
-      input: { fullName: "Edit Lead", phoneNumber: "9991000006", businessName: "Acme" },
+      input: { fullName: "Edit Lead", phoneNumber: "9991000006" },
       actorId: ids.admin,
       claimActor: false
     });
@@ -234,7 +234,7 @@ describe("lead workflow integration", () => {
     const updated = await updateLead({
       leadId: created.lead.id,
       actorId: ids.admin,
-      input: { fullName: "Edit Lead Updated", phoneNumber: "9991000006", businessName: "Acme PLC" }
+      input: { fullName: "Edit Lead Updated", phoneNumber: "9991000006" }
     });
     expect(updated.status).toBe("ok");
 

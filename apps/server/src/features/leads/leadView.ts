@@ -1,6 +1,7 @@
 import { LeadKind, LeadPhase, type Lead, type RegistryLead } from "@prisma/client";
 import { prisma } from "../../config/db.js";
 import { buildVirtualLeadId, localLeadInclude, registryLeadInclude, type LeadRef } from "./leadIdentity.js";
+import { pipelineStageForPhase } from "./pipelineStage.js";
 import type { DirectoryRow } from "../registry/registryTypes.js";
 
 type UserBits = { id: string; name: string; email?: string | null; role?: string | null } | null;
@@ -12,6 +13,9 @@ export type LeadView = {
   phoneKey?: string;
   email?: string | null;
   phase: LeadPhase;
+  pipelineStage: string;
+  leadSource?: string | null;
+  leadSourceDetail?: string | null;
   /** LOCAL | MONGO — MONGO means registry shell (client-compatible). */
   source: "LOCAL" | "MONGO";
   kind: LeadKind | "VIRTUAL";
@@ -25,32 +29,7 @@ export type LeadView = {
   createdById?: string | null;
   appointmentDate?: Date | null;
   nextFollowUpAt?: Date | null;
-  dateRegistered?: Date | null;
-  renewedTo?: Date | null;
-  businessName?: string | null;
-  businessNameAmharic?: string | null;
-  legalStatusNameEng?: string | null;
-  legalStatusNameAmh?: string | null;
-  licenceNumber?: string | null;
-  businessRegion?: string | null;
-  businessZone?: string | null;
-  businessWoreda?: string | null;
-  businessKebele?: string | null;
-  houseNumber?: string | null;
-  businessTelephone?: string | null;
-  managerFName?: string | null;
-  managerMName?: string | null;
-  managerLName?: string | null;
-  englishDescription?: string | null;
-  code?: string | null;
-  subGroupEn?: string | null;
   registryHydrated?: boolean;
-  registry?: {
-    capital?: number;
-    value?: number;
-    nationality?: string;
-    tin?: string;
-  };
   events?: unknown[];
   contactMasked?: boolean;
   createdAt?: Date;
@@ -67,6 +46,9 @@ export function localLeadToView(
     phoneKey: lead.phoneKey,
     email: lead.email,
     phase: lead.phase,
+    pipelineStage: lead.pipelineStage ?? pipelineStageForPhase(lead.phase),
+    leadSource: lead.leadSource,
+    leadSourceDetail: lead.leadSourceDetail,
     source: "LOCAL",
     kind: LeadKind.LOCAL,
     mongoBusinessId: null,
@@ -79,25 +61,6 @@ export function localLeadToView(
     createdById: lead.createdById,
     appointmentDate: lead.appointmentDate,
     nextFollowUpAt: lead.nextFollowUpAt,
-    dateRegistered: lead.dateRegistered,
-    renewedTo: lead.renewedTo,
-    businessName: lead.businessName,
-    businessNameAmharic: lead.businessNameAmharic,
-    legalStatusNameEng: lead.legalStatusNameEng,
-    legalStatusNameAmh: lead.legalStatusNameAmh,
-    licenceNumber: lead.licenceNumber,
-    businessRegion: lead.businessRegion,
-    businessZone: lead.businessZone,
-    businessWoreda: lead.businessWoreda,
-    businessKebele: lead.businessKebele,
-    houseNumber: lead.houseNumber,
-    businessTelephone: lead.businessTelephone,
-    managerFName: lead.managerFName,
-    managerMName: lead.managerMName,
-    managerLName: lead.managerLName,
-    englishDescription: lead.englishDescription,
-    code: lead.code,
-    subGroupEn: lead.subGroupEn,
     events: lead.events,
     createdAt: lead.createdAt,
     updatedAt: lead.updatedAt
@@ -115,6 +78,9 @@ export function registryLeadToView(
     phoneKey: lead.phoneKey,
     email: overlay?.email ?? "",
     phase: lead.phase,
+    pipelineStage: lead.pipelineStage ?? pipelineStageForPhase(lead.phase),
+    leadSource: lead.leadSource,
+    leadSourceDetail: lead.leadSourceDetail,
     source: "MONGO",
     kind: LeadKind.REGISTRY,
     mongoBusinessId: lead.externalBusinessId,
@@ -127,18 +93,7 @@ export function registryLeadToView(
     createdById: lead.createdById,
     appointmentDate: lead.appointmentDate,
     nextFollowUpAt: lead.nextFollowUpAt,
-    businessName: overlay?.businessName ?? null,
-    licenceNumber: overlay?.licenceNumber ?? null,
-    legalStatusNameEng: overlay?.legalStatusNameEng ?? null,
-    managerFName: overlay?.managerFName ?? null,
-    managerLName: overlay?.managerLName ?? null,
-    englishDescription: overlay?.englishDescription ?? lead.sectorKey ?? null,
-    code: overlay?.code ?? null,
-    businessRegion: overlay?.businessRegion ?? lead.regionKey ?? null,
-    businessWoreda: overlay?.businessWoreda ?? lead.subcityKey ?? null,
-    businessTelephone: overlay?.businessTelephone ?? null,
     registryHydrated: overlay?.registryHydrated ?? false,
-    registry: overlay?.registry,
     events: lead.events,
     createdAt: lead.createdAt,
     updatedAt: lead.updatedAt
@@ -153,6 +108,9 @@ export function directoryRowToVirtualView(row: DirectoryRow): LeadView {
     phoneKey: row.phoneKey,
     email: "",
     phase: LeadPhase.NEW,
+    pipelineStage: "Lead",
+    leadSource: null,
+    leadSourceDetail: null,
     source: "MONGO",
     kind: "VIRTUAL",
     mongoBusinessId: row.mongoBusinessId ?? row.externalBusinessId,
@@ -165,25 +123,8 @@ export function directoryRowToVirtualView(row: DirectoryRow): LeadView {
     createdById: null,
     appointmentDate: null,
     nextFollowUpAt: null,
-    dateRegistered: row.dateRegistered ? new Date(row.dateRegistered) : null,
-    businessName: row.businessName || null,
-    licenceNumber: row.tin || null,
-    legalStatusNameEng: row.businessType || null,
-    managerFName: row.managerFirstName || null,
-    managerLName: row.managerLastName || null,
-    code: row.sector || null,
-    englishDescription: row.sectorCategory || null,
-    businessRegion: row.region || null,
-    businessWoreda: row.subcity || null,
-    businessTelephone: row.businessNumber || null,
     events: [],
     registryHydrated: true,
-    registry: {
-      capital: row.capital,
-      value: row.value,
-      nationality: row.nationality,
-      tin: row.tin
-    },
     createdAt: new Date(0),
     updatedAt: new Date(0)
   };

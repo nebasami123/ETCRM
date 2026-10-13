@@ -3,7 +3,7 @@ import { Plus, Upload, Search, ShieldCheck, Pencil, X, Phone, Mail } from "lucid
 import { useAdminLeads } from "../hooks/use-admin-leads";
 import { FileDropzone } from "../../../components/ui/file-dropzone";
 import { LeadForm } from "../../../components/forms/lead-form";
-import { phaseOptions, formatDate, formatCapital, toDateTimeLocalValue, phaseLabels } from "../../../lib/utils/format";
+import { phaseOptions, formatDate, toDateTimeLocalValue, phaseLabels } from "../../../lib/utils/format";
 import { filterAddisSubcities, isAddisAbabaRegion } from "../../../lib/utils/addis-subcities";
 import type { Lead, LeadPhase } from "../../../types";
 import { Card } from "../../../components/ui/card";
@@ -298,8 +298,6 @@ export function AdminLeads() {
                 </th>
                 <th className="px-5 py-3">Lead Info</th>
                 <th className="px-5 py-3">Contact</th>
-                <th className="px-5 py-3">License Info</th>
-                <th className="px-5 py-3">Region / Subcity</th>
                 <th className="px-5 py-3">Current Phase</th>
                 <th className="px-5 py-3">Claim Status</th>
                 <th className="px-5 py-3">Dates</th>
@@ -309,13 +307,13 @@ export function AdminLeads() {
             <tbody className="divide-y divide-separator text-foreground font-medium">
               {leadsHook.isLoading ? (
                 <tr>
-                  <td colSpan={9} className="px-5 py-8 text-center text-muted">
+                  <td colSpan={7} className="px-5 py-8 text-center text-muted">
                     Loading pipeline data...
                   </td>
                 </tr>
               ) : leadsHook.leads.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="px-5 py-8 text-center text-muted">
+                  <td colSpan={7} className="px-5 py-8 text-center text-muted">
                     No leads match your active filters.
                   </td>
                 </tr>
@@ -341,11 +339,6 @@ export function AdminLeads() {
                       <p className="text-[10px] text-muted">{lead.email || "No email provided"}</p>
                     </td>
                     <td className="px-5 py-3 font-mono">{lead.phoneNumber}</td>
-                    <td className="px-5 py-3 font-mono">{lead.licenceNumber || "—"}</td>
-                    <td className="px-5 py-3">
-                      <p>{lead.businessRegion || "—"}</p>
-                      <p className="text-[10px] text-muted">{lead.businessWoreda || "—"}</p>
-                    </td>
                     <td className="px-5 py-3" onClick={(e) => e.stopPropagation()}>
                       {lead.isVirtual ? (
                         <span className="rounded-full bg-accent/10 px-2 py-1 text-[10px] font-bold text-accent">NEW</span>
@@ -437,10 +430,8 @@ export function AdminLeads() {
                 fullName: activeEditLead.fullName,
                 phoneNumber: activeEditLead.phoneNumber,
                 email: activeEditLead.email || "",
-                businessName: activeEditLead.businessName || "",
-                licenceNumber: activeEditLead.licenceNumber || "",
-                businessRegion: activeEditLead.businessRegion || "",
-                businessWoreda: activeEditLead.businessWoreda || "",
+                leadSource: activeEditLead.leadSource || "",
+                leadSourceDetail: activeEditLead.leadSourceDetail || "",
                 appointmentDate: toDateTimeLocalValue(activeEditLead.appointmentDate),
                 assignedToId: activeEditLead.claimedBy?.id || ""
               }}
@@ -462,7 +453,7 @@ export function AdminLeads() {
           <div className="relative w-full max-w-md z-10 animate-in fade-in zoom-in-95 duration-200 ease-out-smooth">
             <FileDropzone
               title="Upload Lead Database (CSV)"
-              description="Drop your CSV or Excel lead list here. Real-estate custom columns are automatically preserved."
+              description="Drop a CSV or Excel file with customer names, phone numbers, emails, and optional appointment or follow-up dates."
               isUploading={leadsHook.isUploading}
               onFileChange={() => {}}
               onUpload={async (file) => {
@@ -531,17 +522,7 @@ export function AdminLeads() {
 function AdminLeadDossier({ lead, onClose }: { lead: Lead; onClose: () => void }) {
   const isMongo = lead.source === "MONGO" || Boolean(lead.isVirtual);
   const fields: Array<[string, string]> = [
-    ["Business", lead.businessName || ""],
-    ["License", lead.licenceNumber || ""],
     ["Source", isMongo ? "Business directory" : "Manually added"],
-    ["Region", lead.businessRegion || ""],
-    ["Zone", lead.businessZone || ""],
-    ["Subcity / Woreda", lead.businessWoreda || ""],
-    ["Manager", [lead.managerFName, lead.managerMName, lead.managerLName].filter(Boolean).join(" ")],
-    ["TIN", lead.registry?.tin || lead.licenceNumber || ""],
-    ["Capital", lead.registry?.capital != null ? formatCapital(lead.registry.capital) : ""],
-    ["Score", lead.registry?.value != null ? formatCapital(lead.registry.value) : ""],
-    ["Nationality", lead.registry?.nationality || ""],
     ["Phase", phaseLabels[lead.phase] || lead.phase],
     ["Claimed by", lead.claimedBy?.name || "Unclaimed"]
   ].filter(([, value]) => Boolean(value)) as Array<[string, string]>;
@@ -594,12 +575,7 @@ function AdminLeadDossier({ lead, onClose }: { lead: Lead; onClose: () => void }
           </div>
 
           <div>
-            <h3 className="text-xs font-bold uppercase tracking-wider text-foreground">Business profile</h3>
-            {!isMongo ? (
-              <p className="mt-3 rounded-xl border border-separator bg-default/10 p-4 text-xs text-muted">
-                Extra business details (capital, TIN, nationality) are only available for leads from the business directory.
-              </p>
-            ) : null}
+            <h3 className="text-xs font-bold uppercase tracking-wider text-foreground">Lead overview</h3>
             <dl className="mt-3 grid grid-cols-2 gap-x-5 gap-y-3 rounded-xl border border-separator p-4 text-xs">
               {fields.map(([label, value]) => (
                 <div key={label}>

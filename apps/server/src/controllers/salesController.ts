@@ -10,9 +10,12 @@ import {
   updateSalesAppointment,
   updateSalesFollowUp,
   updateSalesLeadPhase,
+  updateSalesLeadLog,
+  updateSalesLeadDetails,
   uploadSalesLeads
 } from "../features/sales/salesCommands.js";
 import { importEmptyMessage } from "../features/leads/leadWorkflowService.js";
+import { salesPipelineStages } from "../features/leads/pipelineStage.js";
 import {
   getSalesDashboard,
   getSalesLeaderboard as getSalesLeaderboardQuery,
@@ -26,6 +29,10 @@ const phaseSchema = z.object({ phase: z.nativeEnum(LeadPhase) });
 const noteSchema = z.object({ note: z.string().trim().min(2).max(5000) });
 const appointmentSchema = z.object({ appointmentDate: z.string().nullable().optional() });
 const followUpSchema = z.object({ nextFollowUpAt: z.string().nullable().optional() });
+const leadLogSchema = z.object({
+  pipelineStage: z.enum(salesPipelineStages),
+  note: z.string().trim().min(2).max(5000)
+});
 const transferSchema = z.object({ reason: z.string().trim().min(3).max(1000) });
 const leadSchema = leadInputSchema;
 
@@ -74,7 +81,7 @@ export const listMyLeads: RequestHandler = async (req, res, next) => {
       await listSalesLeads(req.user.id, {
         search: String(req.query.search || ""),
         phase: String(req.query.phase || ""),
-        scope: String(req.query.scope || "all"),
+        scope: req.user.salesType === "EXTERNAL" ? "mine" : String(req.query.scope || "all"),
         region: String(req.query.region || ""),
         subcity: String(req.query.subcity || ""),
         sector: parseQueryStringArray(req.query.sector),
@@ -225,6 +232,9 @@ export const getLead: RequestHandler = async (req, res, next) => {
   try {
     const lead = await getSalesLead(String(req.params.id));
     if (!lead) return res.status(404).json({ message: "Lead not found" });
+    if (req.user.salesType === "EXTERNAL" && lead.claimedById !== req.user.id) {
+      return res.status(404).json({ message: "Lead not found" });
+    }
     res.json({ lead });
   } catch (error) {
     next(error);
@@ -256,6 +266,43 @@ export const addCallNote: RequestHandler = async (req, res, next) => {
     if (result.status === "not-found") return res.status(404).json({ message: "Lead not found" });
     if (result.status === "forbidden") return ownershipDenied(res, result.claimedById);
     res.status(201).json({ lead: result.lead });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const updateLeadLog: RequestHandler = async (req, res, next) => {
+  try {
+    const result = await updateSalesLeadLog({
+      leadId: String(req.params.id),
+      userId: req.user.id,
+      ...leadLogSchema.parse(req.body)
+    });
+    if (result.status === "closed-won-forbidden") {
+      return res.status(403).json({ message: "An admin must close a lead as won and select conversion credit" });
+    }
+    if (result.status === "not-found") return res.status(404).json({ message: "Lead not found" });
+    if (result.status === "forbidden") return ownershipDenied(res, result.claimedById);
+    res.json({ lead: result.lead });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const updateLeadDetails: RequestHandler = async (req, res, next) => {
+  try {
+    const result = await updateSalesLeadDetails({
+      leadId: String(req.params.id),
+      userId: req.user.id,
+      input: leadSchema.parse(req.body)
+    });
+    if (result.status === "not-found") return res.status(404).json({ message: "Lead not found" });
+    if (result.status === "forbidden") return ownershipDenied(res, result.claimedById);
+    if (result.status === "duplicate") {
+      return res.status(409).json({ message: "A lead with this phone number already exists", duplicate: result.duplicate });
+    }
+    if (result.status === "invalid") return res.status(400).json({ message: result.message });
+    res.json({ lead: result.lead });
   } catch (error) {
     next(error);
   }
@@ -328,7 +375,11 @@ export const requestTransfer: RequestHandler = async (req, res, next) => {
 
 export const createLead: RequestHandler = async (req, res, next) => {
   try {
-    const result = await createSalesLead({ input: leadSchema.parse(req.body), userId: req.user.id });
+    const input = leadSchema.parse(req.body);
+    if (input.pipelineStage === "Closed Won") {
+      return res.status(403).json({ message: "An admin must close a lead as won and select conversion credit" });
+    }
+    const result = await createSalesLead({ input, userId: req.user.id });
     if (result.status === "duplicate") {
       return res.status(409).json({ message: "A lead with this phone number already exists", duplicate: result.duplicate });
     }

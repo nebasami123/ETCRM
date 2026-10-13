@@ -52,6 +52,8 @@ export const adminApi = {
     api.post("/admin/quotas", payload).then((res) => res.data),
   uploadLeads: (form: FormData) => api.post<UploadResult>("/admin/leads/upload", form).then((res) => res.data),
   createSalesUser: (payload: SalesUserForm) => api.post("/admin/sales-users", payload).then((res) => res.data),
+  setUserStatus: (userId: string, active: boolean) => api.patch(`/admin/users/${userId}/status`, { active }),
+  setSalesType: (userId: string, salesType: "INTERNAL" | "EXTERNAL") => api.patch(`/admin/sales-users/${userId}/type`, { salesType }),
   resetSalesUserPassword: (userId: string, newPassword: string) =>
     api.post(`/admin/sales-users/${userId}/password`, { newPassword }),
   createLead: (payload: Omit<AdminLeadForm, "assignedToId">) =>

@@ -6,8 +6,11 @@ import {
   requestClaimTransfer,
   updateLeadPhase,
   updateLeadSchedule,
+  updateLeadLog,
+  updateLead,
   type LeadInput
 } from "../leads/leadWorkflowService.js";
+import type { SalesPipelineStage } from "../leads/pipelineStage.js";
 
 export const createSalesLead = ({ input, userId }: { input: LeadInput; userId: string }) =>
   createLead({ input, actorId: userId, claimActor: true });
@@ -36,6 +39,14 @@ export async function updateSalesLeadPhase({
 
 export const addSalesCallNote = ({ leadId, userId, note }: { leadId: string; userId: string; note: string }) =>
   addCallNote({ leadId, actorId: userId, note, requireOwnership: true });
+
+export const updateSalesLeadLog = ({
+  leadId, userId, pipelineStage, note
+}: { leadId: string; userId: string; pipelineStage: SalesPipelineStage; note: string }) =>
+  updateLeadLog({ leadId, actorId: userId, pipelineStage, note, requireOwnership: true });
+
+export const updateSalesLeadDetails = ({ leadId, userId, input }: { leadId: string; userId: string; input: LeadInput }) =>
+  updateLead({ leadId, input, actorId: userId, requireOwnership: true });
 
 export const updateSalesAppointment = ({
   leadId,

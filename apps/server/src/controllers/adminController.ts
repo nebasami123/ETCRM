@@ -11,6 +11,8 @@ import {
   createAdminLead,
   createAdminSalesUser,
   resetAdminSalesPassword,
+  setAdminManagedUserStatus,
+  updateAdminManagedSalesType,
   uploadAdminLeads,
   upsertAdminQuota,
   updateAdminLead
@@ -48,7 +50,7 @@ function parseQueryStringArray(value: unknown): string[] {
   // Support comma-separated values from simple clients
   return [...new Set(raw.split(",").map((item) => item.trim()).filter(Boolean))];
 }
-const salesUserSchema = z.object({ name: z.string().min(2), email: z.string().email(), password: z.string().min(8) });
+const salesUserSchema = z.object({ name: z.string().min(2), email: z.string().email(), password: z.string().min(8), role: z.enum(["SALES", "SALES_ADMIN"]).default("SALES"), salesType: z.enum(["INTERNAL", "EXTERNAL"]).default("INTERNAL") });
 const passwordResetSchema = z.object({ newPassword: z.string().min(8).max(128) });
 const phaseSchema = z
   .object({ phase: z.nativeEnum(LeadPhase), creditedUserId: z.string().nullable().optional() })
@@ -144,6 +146,23 @@ export const resetSalesUserPassword: RequestHandler = async (req, res, next) => 
   } catch (error) {
     next(error);
   }
+};
+
+export const setManagedUserStatus: RequestHandler = async (req, res, next) => {
+  try {
+    const result = await setAdminManagedUserStatus(String(req.params.id), z.object({ active: z.boolean() }).parse(req.body).active, req.user.id);
+    if (result === "not-found") return res.status(404).json({ message: "Managed account not found" });
+    if (result === "forbidden") return res.status(403).json({ message: "You cannot deactivate your own account" });
+    res.status(204).end();
+  } catch (error) { next(error); }
+};
+
+export const setManagedSalesType: RequestHandler = async (req, res, next) => {
+  try {
+    const result = await updateAdminManagedSalesType(String(req.params.id), z.object({ salesType: z.enum(["INTERNAL", "EXTERNAL"]) }).parse(req.body).salesType);
+    if (!result) return res.status(404).json({ message: "Sales representative not found" });
+    res.status(204).end();
+  } catch (error) { next(error); }
 };
 
 export const listLeads: RequestHandler = async (req, res, next) => {
@@ -287,6 +306,7 @@ export const updateLead: RequestHandler = async (req, res, next) => {
       return res.status(409).json({ message: "A lead with this phone number already exists", duplicate: result.duplicate });
     }
     if (result.status === "invalid") return res.status(400).json({ message: result.message });
+    if (result.status === "forbidden") return res.status(403).json({ message: "Only the lead owner can update this lead" });
     res.json({ lead: result.lead });
   } catch (error) {
     next(error);

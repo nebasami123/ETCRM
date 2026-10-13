@@ -4,6 +4,7 @@ import { prisma } from "../../config/db.js";
 export interface LeaderboardEntry {
   userId: string;
   name: string;
+  salesType: "INTERNAL" | "EXTERNAL";
   claimedLeads: number;
   conversions: number;
   losses: number;
@@ -27,7 +28,7 @@ export interface LeaderboardEntry {
 export async function buildLeaderboard(opts?: { from?: Date; to?: Date }): Promise<LeaderboardEntry[]> {
   const users = await prisma.user.findMany({
     where: { role: "SALES" },
-    select: { id: true, name: true },
+    select: { id: true, name: true, salesType: true },
     orderBy: { name: "asc" }
   });
   if (!users.length) return [];
@@ -132,6 +133,7 @@ export async function buildLeaderboard(opts?: { from?: Date; to?: Date }): Promi
     return {
       userId: user.id,
       name: user.name,
+      salesType: user.salesType || "INTERNAL",
       claimedLeads: claimedMap.get(user.id) || 0,
       conversions,
       losses,

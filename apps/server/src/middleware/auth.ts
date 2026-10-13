@@ -7,14 +7,16 @@ export const requireAuth: RequestHandler = async (req, res, next) => {
     const session = await auth.api.getSession({
       headers: fromNodeHeaders(req.headers)
     });
-    if (!session || (session.user.role !== "ADMIN" && session.user.role !== "SALES")) {
+    const role = session?.user.role;
+    if (!session || (role !== "ADMIN" && role !== "SALES" && role !== "SALES_ADMIN")) {
       return res.status(401).json({ message: "Authentication required" });
     }
     req.user = {
       id: session.user.id,
       name: session.user.name,
       email: session.user.email,
-      role: session.user.role
+      role,
+      salesType: session.user.salesType === "EXTERNAL" ? "EXTERNAL" : session.user.salesType === "INTERNAL" ? "INTERNAL" : null
     };
     next();
   } catch {

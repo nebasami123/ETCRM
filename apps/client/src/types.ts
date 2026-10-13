@@ -1,6 +1,9 @@
 import type { FormEvent, ReactNode } from "react";
+import type { SalesPipelineStage } from "@etcrm/contracts";
+export type { SalesPipelineStage } from "@etcrm/contracts";
 
-export type Role = "ADMIN" | "SALES";
+export type Role = "ADMIN" | "SALES_ADMIN" | "SALES";
+export type SalesType = "INTERNAL" | "EXTERNAL";
 export type LeadPhase = "NEW" | "CONTACTED" | "FOLLOW_UP" | "N_A" | "CLOSED_WON" | "CLOSED_LOST";
 export type ActivityType =
   | "CALL_NOTE"
@@ -22,6 +25,8 @@ export interface UserSummary {
   name: string;
   email?: string;
   role?: Role;
+  salesType?: SalesType | null;
+  banned?: boolean | null;
 }
 
 export interface AuthUser {
@@ -29,6 +34,7 @@ export interface AuthUser {
   name: string;
   email: string;
   role: Role;
+  salesType?: SalesType | null;
 }
 
 export interface AuthResponse {
@@ -46,6 +52,9 @@ export interface Lead {
   /** True when the sales API returned safe placeholder contact details. */
   contactMasked?: boolean;
   phase: LeadPhase;
+  pipelineStage?: SalesPipelineStage;
+  leadSource?: string | null;
+  leadSourceDetail?: string | null;
   source?: LeadSource;
   /** Directory business pointer (API still uses mongoBusinessId for compatibility). */
   mongoBusinessId?: string | null;
@@ -59,33 +68,11 @@ export interface Lead {
   claimedById?: string | null;
   claimedAt?: DateValue;
   createdById?: string | null;
+  createdAt?: DateValue;
+  updatedAt?: DateValue;
   appointmentDate?: DateValue;
   nextFollowUpAt?: DateValue;
-  dateRegistered?: DateValue;
-  renewedTo?: DateValue;
-  businessName?: string | null;
-  businessNameAmharic?: string | null;
-  legalStatusNameEng?: string | null;
-  legalStatusNameAmh?: string | null;
-  licenceNumber?: string | null;
-  businessRegion?: string | null;
-  businessZone?: string | null;
-  businessWoreda?: string | null;
-  businessKebele?: string | null;
-  houseNumber?: string | null;
-  businessTelephone?: string | null;
-  managerFName?: string | null;
-  managerMName?: string | null;
-  managerLName?: string | null;
-  englishDescription?: string | null;
-  subGroupEn?: string | null;
   registryHydrated?: boolean;
-  registry?: {
-    capital?: number;
-    value?: number;
-    nationality?: string;
-    tin?: string;
-  };
   events?: Activity[];
 }
 
@@ -154,6 +141,8 @@ export interface AdminSummary {
 
 export interface AdminOverviewAggregates {
   phaseCounts: Array<{ phase: LeadPhase; count: number }>;
+  pipelineCounts: Array<{ stage: SalesPipelineStage; count: number }>;
+  pipelineSources: Array<{ source: string; historyUnavailable: number; stages: Array<{ stage: SalesPipelineStage; count: number; currentCount: number; progressedCount: number }> }>;
   agentOutcomes: Array<{ userId: string; name: string; won: number; lost: number; pending: number }>;
   activityMix: Array<{ type: ActivityType; count: number }>;
 }
@@ -336,11 +325,9 @@ export interface AdminLeadForm {
   fullName: string;
   phoneNumber: string;
   email: string;
+  leadSource?: string;
+  leadSourceDetail?: string;
   assignedToId: string;
-  businessName: string;
-  licenceNumber: string;
-  businessRegion: string;
-  businessWoreda: string;
   appointmentDate?: string;
 }
 
@@ -348,11 +335,9 @@ export interface SalesLeadForm {
   fullName: string;
   phoneNumber: string;
   email: string;
-  businessName: string;
-  licenceNumber: string;
-  businessRegion: string;
-  businessWoreda: string;
-  appointmentDate: string;
+  leadSource?: string;
+  leadSourceDetail?: string;
+  nextFollowUpAt?: string | null;
   assignedToId?: string;
 }
 
@@ -363,10 +348,8 @@ export interface LeadFormData {
   fullName: string;
   phoneNumber: string;
   email: string;
-  businessName: string;
-  licenceNumber: string;
-  businessRegion: string;
-  businessWoreda: string;
+  leadSource?: string;
+  leadSourceDetail?: string;
   appointmentDate: string | null;
   assignedToId?: string;
 }
@@ -375,6 +358,15 @@ export interface SalesUserForm {
   name: string;
   email: string;
   password: string;
+  role?: "SALES" | "SALES_ADMIN";
+  salesType?: SalesType;
+}
+
+export interface SalesAdminDashboardData {
+  team: { INTERNAL: number; EXTERNAL: number; active: number; inactive: number };
+  leads: { total: number; open: number; won: number; lost: number };
+  pipeline: Array<{ stage: SalesPipelineStage; count: number }>;
+  leaderboard: LeaderboardEntry[];
 }
 
 export interface UploadResult {
@@ -460,6 +452,7 @@ export interface SalesTaskData {
 export interface LeaderboardEntry {
   userId: string;
   name: string;
+  salesType?: SalesType;
   claimedLeads: number;
   conversions: number;
   losses: number;

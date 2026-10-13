@@ -443,7 +443,6 @@ export async function claimRegistryLead(input: {
               id: duplicate.id,
               fullName: duplicate.displayName,
               phoneNumber: duplicate.phoneNumber,
-              licenceNumber: null,
               claimedById: duplicate.claimedById
             }
           };
@@ -451,7 +450,7 @@ export async function claimRegistryLead(input: {
       } else {
         const duplicate = await db.lead.findUnique({
           where: { id: existingIndex.leadId },
-          select: { id: true, fullName: true, phoneNumber: true, licenceNumber: true, claimedById: true }
+          select: { id: true, fullName: true, phoneNumber: true, claimedById: true }
         });
         if (duplicate) return { status: "duplicate" as const, duplicate };
       }
@@ -742,36 +741,12 @@ export async function hydrateMongoLeads<T extends LeadView | { source?: string |
     if (!business) return { ...lead, registryHydrated: false };
 
     const phone = str((lead as { phoneNumber?: string }).phoneNumber);
-    const key = phone ? tryPhoneKey(phone) : null;
-    const sector =
-      (business.businessSectors || []).find((item: MongoBusinessSector) => {
-        const sectorKey = tryPhoneKey(sectorPhone(item));
-        return key && sectorKey === key;
-      }) || business.businessSectors?.[0];
-
     return {
       ...lead,
       fullName: displayName(business, phone) || (lead as { fullName?: string }).fullName,
-      businessName: str(business.businessName) || (lead as { businessName?: string | null }).businessName,
-      licenceNumber: str(business.tin) || (lead as { licenceNumber?: string | null }).licenceNumber,
-      managerFName: str(business.managerFirstName) || (lead as { managerFName?: string | null }).managerFName,
-      managerLName: str(business.managerLastName) || (lead as { managerLName?: string | null }).managerLName,
-      legalStatusNameEng: str(business.businessType) || (lead as { legalStatusNameEng?: string | null }).legalStatusNameEng,
-      businessRegion: str(sector?.region) || (lead as { businessRegion?: string | null }).businessRegion,
-      businessWoreda: str(sector?.subcity) || (lead as { businessWoreda?: string | null }).businessWoreda,
-      englishDescription:
-        str(sector?.englishDescription) || (lead as { englishDescription?: string | null }).englishDescription,
-      code: str(sector?.sector) || (lead as { code?: string | null }).code,
-      businessTelephone: str(sector?.businessNumber) || (lead as { businessTelephone?: string | null }).businessTelephone,
       mongoBusinessId: extId,
       externalBusinessId: extId,
-      registryHydrated: true,
-      registry: {
-        capital: num(business.capital),
-        value: num(business.value),
-        nationality: str(business.nationality),
-        tin: str(business.tin)
-      }
+      registryHydrated: true
     };
   });
 }
@@ -789,28 +764,7 @@ export async function getRegistrySummary() {
 }
 
 async function listLocalLeadFilterOptionsUncached() {
-  const [regions, subcities, sectors, regRegions, regSubcities, regSectors, registry] = await Promise.all([
-    prisma.lead.findMany({
-      where: { businessRegion: { not: null } },
-      distinct: ["businessRegion"],
-      select: { businessRegion: true },
-      orderBy: { businessRegion: "asc" },
-      take: 500
-    }),
-    prisma.lead.findMany({
-      where: { businessWoreda: { not: null } },
-      distinct: ["businessWoreda"],
-      select: { businessWoreda: true },
-      orderBy: { businessWoreda: "asc" },
-      take: 1000
-    }),
-    prisma.lead.findMany({
-      where: { englishDescription: { not: null } },
-      distinct: ["englishDescription"],
-      select: { englishDescription: true },
-      orderBy: { englishDescription: "asc" },
-      take: 500
-    }),
+  const [regRegions, regSubcities, regSectors, registry] = await Promise.all([
     prisma.registryLead.findMany({
       where: { regionKey: { not: null } },
       distinct: ["regionKey"],
@@ -839,21 +793,9 @@ async function listLocalLeadFilterOptionsUncached() {
   const merge = (...lists: string[][]) => [...new Set(lists.flat().filter(Boolean))].sort((x, y) => x.localeCompare(y));
 
   return {
-    regions: merge(
-      regions.map((row) => row.businessRegion!).filter(Boolean),
-      regRegions.map((row) => row.regionKey!).filter(Boolean),
-      registry.regions || []
-    ),
-    subcities: merge(
-      subcities.map((row) => row.businessWoreda!).filter(Boolean),
-      regSubcities.map((row) => row.subcityKey!).filter(Boolean),
-      registry.subcities || []
-    ),
-    sectors: merge(
-      sectors.map((row) => row.englishDescription!).filter(Boolean),
-      regSectors.map((row) => row.sectorKey!).filter(Boolean),
-      registry.sectors || []
-    ).slice(0, 500)
+    regions: merge(regRegions.map((row) => row.regionKey!).filter(Boolean), registry.regions || []),
+    subcities: merge(regSubcities.map((row) => row.subcityKey!).filter(Boolean), registry.subcities || []),
+    sectors: merge(regSectors.map((row) => row.sectorKey!).filter(Boolean), registry.sectors || []).slice(0, 500)
   };
 }
 

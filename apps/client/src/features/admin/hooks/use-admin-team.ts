@@ -52,12 +52,25 @@ export function useAdminTeam() {
     }
   }
 
+  async function setUserStatus(userId: string, active: boolean) {
+    try { setSaving(true); await adminApi.setUserStatus(userId, active); success(active ? "Account reactivated" : "Account deactivated; active sessions revoked"); await loadTeam(); }
+    catch (err: unknown) { danger(getErrorMessage(err, "Could not update account status")); }
+    finally { setSaving(false); }
+  }
+
+  async function setSalesType(userId: string, salesType: "INTERNAL" | "EXTERNAL") {
+    try { await adminApi.setSalesType(userId, salesType); setTeam((users) => users.map((user) => user.id === userId ? { ...user, salesType } : user)); }
+    catch (err: unknown) { danger(getErrorMessage(err, "Could not update reporting type")); }
+  }
+
   return {
     team,
     isLoading,
     saving,
     createSalesUser,
     resetPassword,
+    setUserStatus,
+    setSalesType,
     refresh: loadTeam
   };
 }

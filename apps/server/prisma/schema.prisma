@@ -18,6 +18,11 @@ enum LeadPhase {
   CLOSED_LOST
 }
 
+enum SalesType {
+  INTERNAL
+  EXTERNAL
+}
+
 enum ActivityType {
   LEAD_CREATED
   LEAD_IMPORTED
@@ -59,6 +64,7 @@ model User {
   emailVerified Boolean   @default(false)
   image         String?
   role          String    @default("SALES")
+  salesType     SalesType?
   banned        Boolean?  @default(false)
   banReason     String?
   banExpires    DateTime? @db.Timestamptz(3)
@@ -151,6 +157,9 @@ model Lead {
   phoneKey            String    @unique
   email               String    @default("")
   phase               LeadPhase @default(NEW)
+  pipelineStage       String    @default("Lead")
+  leadSource          String?
+  leadSourceDetail    String?
   createdById         String?
   createdBy           User?     @relation("CreatedLeads", fields: [createdById], references: [id], onDelete: SetNull)
   claimedById         String?
@@ -158,43 +167,14 @@ model Lead {
   claimedAt           DateTime? @db.Timestamptz(3)
   appointmentDate     DateTime? @db.Timestamptz(3)
   nextFollowUpAt      DateTime? @db.Timestamptz(3)
-  dateRegistered      DateTime? @db.Timestamptz(3)
-  legalStatusNameEng  String?
-  legalStatusNameAmh  String?
-  status              String?
-  licenceNumber       String?
-  licenceKey          String?
-  renewedTo           DateTime? @db.Timestamptz(3)
-  siteId              String?
-  businessName        String?
-  businessNameAmharic String?
-  managerFName        String?
-  managerMName        String?
-  managerLName        String?
-  description         String?
-  code                String?
-  englishDescription  String?
-  amDescription       String?
-  subGroup            String?
-  subGroupAm          String?
-  subGroupEn          String?
-  businessRegion      String?
-  businessZone        String?
-  businessWoreda      String?
-  businessKebele      String?
-  houseNumber         String?
-  businessTelephone   String?
   createdAt           DateTime  @default(now()) @db.Timestamptz(3)
   updatedAt           DateTime  @updatedAt @db.Timestamptz(3)
 
   @@index([phase])
-  @@index([licenceKey])
   @@index([claimedById])
   @@index([createdById])
   @@index([nextFollowUpAt])
   @@index([appointmentDate])
-  @@index([businessRegion])
-  @@index([businessWoreda])
 }
 
 /// Thin CRM shell for directory-sourced leads. Business fields live in the external directory.
@@ -210,6 +190,9 @@ model RegistryLead {
   subcityKey         String?
   sectorKey          String?
   phase              LeadPhase @default(NEW)
+  pipelineStage      String    @default("Lead")
+  leadSource         String?
+  leadSourceDetail   String?
   createdById        String?
   createdBy          User?     @relation("CreatedRegistryLeads", fields: [createdById], references: [id], onDelete: SetNull)
   claimedById        String?

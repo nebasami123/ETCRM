@@ -1,6 +1,7 @@
 node_modules
 .pnpm-store
 .env
+.env.database-check
 *.db
 *.db-journal
 *.xlsx
