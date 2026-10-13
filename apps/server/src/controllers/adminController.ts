@@ -50,7 +50,7 @@ function parseQueryStringArray(value: unknown): string[] {
   // Support comma-separated values from simple clients
   return [...new Set(raw.split(",").map((item) => item.trim()).filter(Boolean))];
 }
-const salesUserSchema = z.object({ name: z.string().min(2), email: z.string().email(), password: z.string().min(8), role: z.enum(["SALES", "SALES_ADMIN"]).default("SALES"), salesType: z.enum(["INTERNAL", "EXTERNAL"]).default("INTERNAL") });
+const salesUserSchema = z.object({ name: z.string().min(2), email: z.string().email(), password: z.string().min(8), role: z.enum(["ADMIN", "SALES", "SALES_ADMIN"]).default("SALES"), salesType: z.enum(["INTERNAL", "EXTERNAL"]).default("INTERNAL") });
 const passwordResetSchema = z.object({ newPassword: z.string().min(8).max(128) });
 const phaseSchema = z
   .object({ phase: z.nativeEnum(LeadPhase), creditedUserId: z.string().nullable().optional() })

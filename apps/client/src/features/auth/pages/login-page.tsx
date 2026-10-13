@@ -20,11 +20,6 @@ export function LoginPage() {
     return <Navigate to={user.role === "ADMIN" ? "/admin" : "/sales"} replace />;
   }
 
-  const handleDemoRoleSwitch = (role: "admin" | "sales") => {
-    setEmail(role === "admin" ? "admin@etcrm.local" : "sales@etcrm.local");
-    setPassword("password123");
-  };
-
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -102,26 +97,6 @@ export function LoginPage() {
           </button>
         </form>
 
-        {/* Demo Accounts Panel */}
-        <div className="mt-6 pt-5 border-t border-separator">
-          <p className="text-[10px] font-bold text-muted uppercase tracking-wider text-center mb-2.5">
-            Demo Credentials Switcher
-          </p>
-          <div className="grid grid-cols-2 gap-2 text-[10px] font-semibold">
-            <button
-              onClick={() => handleDemoRoleSwitch("admin")}
-              className="btn-interactive py-1.5 px-2.5 rounded-lg border border-border bg-surface text-foreground hover:bg-default"
-            >
-              Demo Admin
-            </button>
-            <button
-              onClick={() => handleDemoRoleSwitch("sales")}
-              className="btn-interactive py-1.5 px-2.5 rounded-lg border border-border bg-surface text-foreground hover:bg-default"
-            >
-              Demo Sales
-            </button>
-          </div>
-        </div>
       </Card>
     </main>
   );

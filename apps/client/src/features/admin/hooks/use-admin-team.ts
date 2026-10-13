@@ -30,10 +30,10 @@ export function useAdminTeam() {
     try {
       setSaving(true);
       await adminApi.createSalesUser(payload);
-      success(`Sales user "${payload.name}" created successfully`);
+      success(`Account "${payload.name}" created successfully`);
       await loadTeam();
     } catch (err: unknown) {
-      danger(getErrorMessage(err, "Could not create sales user"));
+      danger(getErrorMessage(err, "Could not create account"));
       throw err;
     } finally {
       setSaving(false);

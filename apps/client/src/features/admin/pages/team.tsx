@@ -5,7 +5,7 @@ import { FormField } from "../../../components/forms/form-field";
 import { createUserSchema, resetPasswordSchema } from "../../../lib/validations/users";
 import { Card } from "../../../components/ui/card";
 import { CustomSelect } from "../../../components/ui/custom-select";
-import type { SalesType } from "../../../types";
+import type { Role, SalesType } from "../../../types";
 
 export function AdminTeam() {
   const teamHook = useAdminTeam();
@@ -14,7 +14,7 @@ export function AdminTeam() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [role, setRole] = useState<"SALES" | "SALES_ADMIN">("SALES");
+  const [role, setRole] = useState<Role>("SALES");
   const [salesType, setSalesType] = useState<SalesType>("INTERNAL");
   const [createErrors, setCreateErrors] = useState<Record<string, string>>({});
 
@@ -153,13 +153,14 @@ export function AdminTeam() {
             <h3 className="text-xs font-bold text-foreground uppercase tracking-wider">Create team account</h3>
           </div>
           <p className="text-xs text-muted leading-relaxed mb-4">
-            Add a sales representative or a scoped Sales Admin.
+            Add a sales representative, scoped Sales Admin, or full administrator.
           </p>
 
           <form onSubmit={handleCreateUser} className="space-y-4">
             <FormField label="Account type" required>
-              <CustomSelect value={role} onChange={(value) => setRole(value as "SALES" | "SALES_ADMIN")} options={[{ value: "SALES", label: "Sales representative" }, { value: "SALES_ADMIN", label: "Sales Admin" }]} />
+              <CustomSelect value={role} onChange={(value) => setRole(value as Role)} options={[{ value: "SALES", label: "Sales representative" }, { value: "SALES_ADMIN", label: "Sales Admin" }, { value: "ADMIN", label: "Administrator" }]} />
             </FormField>
+            {role === "ADMIN" && <p className="-mt-2 text-[11px] leading-relaxed text-muted">Administrators can manage all users and company-wide CRM data.</p>}
             {role === "SALES" && <FormField label="Reporting type" required>
               <CustomSelect value={salesType} onChange={(value) => setSalesType(value as SalesType)} options={[{ value: "INTERNAL", label: "Internal" }, { value: "EXTERNAL", label: "External" }]} />
             </FormField>}
@@ -210,7 +211,7 @@ export function AdminTeam() {
               disabled={teamHook.saving}
               className="btn-interactive w-full px-4 py-2 text-xs font-bold bg-accent text-accent-foreground rounded-lg hover:opacity-90 disabled:opacity-50"
             >
-              {teamHook.saving ? "Creating account..." : role === "SALES_ADMIN" ? "Create Sales Admin" : "Add Agent"}
+              {teamHook.saving ? "Creating account..." : role === "ADMIN" ? "Create Administrator" : role === "SALES_ADMIN" ? "Create Sales Admin" : "Add Agent"}
             </button>
           </form>
         </Card>

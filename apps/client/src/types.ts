@@ -358,7 +358,7 @@ export interface SalesUserForm {
   name: string;
   email: string;
   password: string;
-  role?: "SALES" | "SALES_ADMIN";
+  role?: Role;
   salesType?: SalesType;
 }
 

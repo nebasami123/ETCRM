@@ -12,9 +12,9 @@ import {
   type LeadInput
 } from "../leads/leadWorkflowService.js";
 
-export const createAdminSalesUser = ({ name, email, password, role = "SALES", salesType = "INTERNAL" }: { name: string; email: string; password: string; role?: "SALES" | "SALES_ADMIN"; salesType?: "INTERNAL" | "EXTERNAL" }) => createAdminSalesUserFn({ name, email, password, role, salesType });
+export const createAdminSalesUser = ({ name, email, password, role = "SALES", salesType = "INTERNAL" }: { name: string; email: string; password: string; role?: "ADMIN" | "SALES" | "SALES_ADMIN"; salesType?: "INTERNAL" | "EXTERNAL" }) => createAdminSalesUserFn({ name, email, password, role, salesType });
 
-async function createAdminSalesUserFn(input: { name: string; email: string; password: string; role: "SALES" | "SALES_ADMIN"; salesType: "INTERNAL" | "EXTERNAL" }) {
+async function createAdminSalesUserFn(input: { name: string; email: string; password: string; role: "ADMIN" | "SALES" | "SALES_ADMIN"; salesType: "INTERNAL" | "EXTERNAL" }) {
   try {
     const user = await auth.api.createUser({ body: { name: input.name, email: input.email, password: input.password, role: input.role as never } });
     if (input.role === "SALES") await prisma.user.update({ where: { id: user.user.id }, data: { salesType: input.salesType } });
