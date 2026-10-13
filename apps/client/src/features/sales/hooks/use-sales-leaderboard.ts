@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import type { LeaderboardEntry } from "../../../types";
 import { salesApi } from "../api";
 import { useToast } from "../../../hooks/use-toast";
@@ -8,15 +8,27 @@ export function useSalesLeaderboard() {
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [myStats, setMyStats] = useState<LeaderboardEntry | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const { danger } = useToast();
 
-  useEffect(() => {
-    setIsLoading(true);
-    salesApi.getLeaderboard()
-      .then((data) => { setLeaderboard(data.leaderboard); setMyStats(data.myStats); })
-      .catch((err: unknown) => danger(getErrorMessage(err, "Failed to load leaderboard")))
-      .finally(() => setIsLoading(false));
-  }, []);
+  const loadLeaderboard = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      setLoadError(false);
+      const data = await salesApi.getLeaderboard();
+      setLeaderboard(data.leaderboard);
+      setMyStats(data.myStats);
+    } catch (err: unknown) {
+      setLoadError(true);
+      danger(getErrorMessage(err, "Failed to load leaderboard"));
+    } finally {
+      setIsLoading(false);
+    }
+  }, [danger]);
 
-  return { leaderboard, myStats, isLoading };
+  useEffect(() => {
+    loadLeaderboard();
+  }, [loadLeaderboard]);
+
+  return { leaderboard, myStats, isLoading, loadError, refresh: loadLeaderboard };
 }

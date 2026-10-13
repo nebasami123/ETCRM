@@ -24,11 +24,13 @@ export function useLeadList(scope: "mine" | "all" = "all", campaignId = "") {
   const [source, setSource] = useState<LeadSource | "ALL">("ALL");
   const [pagination, setPagination] = useState<Pagination>({ page: 1, pageSize: 20, total: 0, totalPages: 0 });
   const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const { danger } = useToast();
 
   async function loadLeads() {
     try {
       setIsLoading(true);
+      setLoadError(false);
       const leadsData = await salesApi.getLeads({
         scope: campaignId ? "mine" : scope,
         search: debouncedSearch,
@@ -44,6 +46,7 @@ export function useLeadList(scope: "mine" | "all" = "all", campaignId = "") {
       setLeads(leadsData.leads);
       setPagination(leadsData.pagination);
     } catch (err: unknown) {
+      setLoadError(true);
       danger(getErrorMessage(err, "Failed to load lead queue"));
     } finally {
       setIsLoading(false);
@@ -52,7 +55,6 @@ export function useLeadList(scope: "mine" | "all" = "all", campaignId = "") {
 
   useEffect(() => {
     loadLeads();
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional: reload on filter/page changes
   }, [scope, campaignId, debouncedSearch, phase, region, subcity, sector, source, pagination.page, pagination.pageSize]);
 
   useEffect(() => {
@@ -132,6 +134,7 @@ export function useLeadList(scope: "mine" | "all" = "all", campaignId = "") {
     pagination,
     setPage: (page: number) => setPagination((prev) => ({ ...prev, page })),
     isLoading,
+    loadError,
     refresh: loadLeads
   };
 }

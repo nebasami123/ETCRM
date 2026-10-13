@@ -12,6 +12,10 @@
 
     /* Spacing & Layout */
     --spacing: 0.25rem;
+    --font-display: var(--font-sans);
+    --font-body: var(--font-sans);
+    --font-geist: var(--font-sans);
+    --font-inter: var(--font-sans);
     --border-width: 1px;
     --field-border-width: 1px;
     --disabled-opacity: 0.5;
@@ -30,6 +34,10 @@
     /* Surface: Cards, lists, etc. */
     --surface: var(--white);
     --surface-foreground: var(--foreground);
+    --surface-raised: var(--white);
+    --surface-muted: var(--default);
+    --text-secondary: var(--muted);
+    --text-muted: var(--muted);
 
     /* Overlay: Modals, dropdowns, etc. */
     --overlay: var(--white);
@@ -74,6 +82,10 @@
     /* Borders */
     --border: oklch(0.12 0.01 155 / 8%);
     --separator: oklch(0.12 0.01 155 / 6%);
+    --border-subtle: var(--separator);
+    --border-strong: color-mix(in oklch, var(--foreground) 24%, transparent);
+    --accent-strong: var(--accent);
+    --accent-subtle: color-mix(in oklch, var(--accent) 12%, transparent);
     --focus: var(--accent);
     --link: var(--accent);
 
@@ -87,6 +99,10 @@
   .dark,
   [data-theme="dark"] {
     color-scheme: dark;
+    --font-display: var(--font-sans);
+    --font-body: var(--font-sans);
+    --font-geist: var(--font-sans);
+    --font-inter: var(--font-sans);
 
     /* Base Colors */
     --background: oklch(0.145 0.012 155); /* deep dark green-black */
@@ -95,6 +111,10 @@
     /* Surface */
     --surface: oklch(0.18 0.012 155); /* slightly lighter than background */
     --surface-foreground: var(--foreground);
+    --surface-raised: oklch(0.22 0.012 155);
+    --surface-muted: var(--default);
+    --text-secondary: var(--muted);
+    --text-muted: var(--muted);
 
     /* Overlay */
     --overlay: oklch(0.20 0.012 155);
@@ -139,6 +159,10 @@
     /* Borders */
     --border: oklch(0.95 0.005 155 / 8%);
     --separator: oklch(0.95 0.005 155 / 6%);
+    --border-subtle: var(--separator);
+    --border-strong: color-mix(in oklch, var(--foreground) 28%, transparent);
+    --accent-strong: var(--accent);
+    --accent-subtle: color-mix(in oklch, var(--accent) 14%, transparent);
     --focus: var(--accent);
     --link: var(--accent);
 

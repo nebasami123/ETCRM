@@ -14,7 +14,7 @@ import { PhaseBadge } from "../../../components/ui/phase-badge";
 
 const phaseColors: Record<LeadPhase, string> = {
   NEW: "bg-accent/10 border-accent/20 text-accent hover:bg-accent/15",
-  CONTACTED: "bg-blue-500/10 border-blue-500/20 text-blue-600 dark:text-blue-400 hover:bg-blue-500/15",
+  CONTACTED: "bg-accent/10 border-accent/20 text-accent hover:bg-accent/15",
   FOLLOW_UP: "bg-warning/10 border-warning/20 text-warning hover:bg-warning/15",
   N_A: "bg-muted/20 border-border text-muted hover:bg-muted/30",
   CLOSED_WON: "bg-success/10 border-success/20 text-success hover:bg-success/15",
@@ -309,6 +309,15 @@ export function AdminLeads() {
                 <tr>
                   <td colSpan={7} className="px-5 py-8 text-center text-muted">
                     Loading pipeline data...
+                  </td>
+                </tr>
+              ) : leadsHook.loadError ? (
+                <tr>
+                  <td colSpan={7} className="px-5 py-8 text-center text-muted">
+                    <p>Leads could not be loaded.</p>
+                    <button type="button" onClick={() => leadsHook.refresh()} className="mt-3 rounded-lg border border-separator px-3 py-1.5 text-xs font-semibold text-foreground hover:bg-default/50">
+                      Try again
+                    </button>
                   </td>
                 </tr>
               ) : leadsHook.leads.length === 0 ? (

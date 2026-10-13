@@ -106,7 +106,6 @@ export function SalesLeadLog() {
   useEffect(() => {
     void loadLeads();
     // The page owns this one initial fetch; toast callbacks do not affect the request.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   function changeMode(nextMode: Mode) {

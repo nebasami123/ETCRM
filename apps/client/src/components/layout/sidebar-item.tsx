@@ -15,9 +15,9 @@ export function SidebarItem({ icon: Icon, label, to, collapsed = false, badge }:
       to={to}
       end={to === "/admin" || to === "/sales"}
       className={({ isActive }) =>
-        `btn-interactive group flex items-center gap-3 rounded-lg px-3 py-2 text-xs font-semibold transition-all duration-200 focus-visible:outline-none ${
+        `btn-interactive group flex min-h-10 items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors duration-160 focus-visible:outline-none ${
           isActive
-            ? "bg-accent/10 text-accent font-bold"
+            ? "bg-accent/10 text-accent font-medium"
             : "text-muted hover:bg-default hover:text-foreground"
         }`
       }

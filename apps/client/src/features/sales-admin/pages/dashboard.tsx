@@ -1,8 +1,9 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { ArrowUpRight, Users, BriefcaseBusiness, Trophy, CircleCheckBig } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Card } from "../../../components/ui/card";
 import { LeaderboardTable } from "../../../components/ui/leaderboard-table";
+import { LoadingSkeleton } from "../../../components/ui/loading-skeleton";
 import { salesAdminApi } from "../api";
 import type { SalesAdminDashboardData } from "../../../types";
 
@@ -11,8 +12,15 @@ const numberFormat = new Intl.NumberFormat();
 export function SalesAdminDashboard() {
   const [data, setData] = useState<SalesAdminDashboardData | null>(null);
   const [error, setError] = useState("");
-  useEffect(() => { salesAdminApi.dashboard().then(setData).catch(() => setError("Could not load team overview.")); }, []);
-  if (!data) return <div className="py-16 text-center text-xs text-muted">{error || "Loading team overview…"}</div>;
+  const load = useCallback(async () => {
+    setError("");
+    try { setData(await salesAdminApi.dashboard()); }
+    catch { setError("Could not load the team overview."); }
+  }, []);
+  useEffect(() => { void load(); }, [load]);
+  if (!data) return error
+    ? <div className="crm-card flex flex-wrap items-center justify-between gap-4 p-5 text-sm" role="alert"><span className="text-danger">{error}</span><button type="button" onClick={() => void load()} className="font-medium text-accent underline underline-offset-2">Try again</button></div>
+    : <div className="space-y-6" aria-busy="true"><LoadingSkeleton type="card" count={4} /><LoadingSkeleton type="table" count={4} /></div>;
   const stats = [
     { label: "Sales reps", value: data.team.INTERNAL + data.team.EXTERNAL, hint: `${data.team.active} active · ${data.team.inactive} inactive`, icon: Users },
     { label: "Team-owned leads", value: data.leads.total, hint: `${data.leads.open} in progress`, icon: BriefcaseBusiness },

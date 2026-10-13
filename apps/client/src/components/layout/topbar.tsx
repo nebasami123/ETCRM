@@ -70,12 +70,12 @@ export function Topbar({ onMenuPress }: TopbarProps) {
   }
 
   return (
-    <header className="sticky top-0 z-40 flex h-14 w-full items-center justify-between border-b border-separator bg-surface/80 px-4 backdrop-blur-md transition-colors duration-300">
+    <header className="crm-topbar sticky top-0 z-40 flex h-16 w-full items-center justify-between border-b border-border bg-surface px-4 transition-colors sm:px-6">
       <div className="flex items-center gap-3">
         {onMenuPress && (
           <button
             onClick={onMenuPress}
-            className="btn-interactive inline-flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-surface text-foreground shadow-surface hover:bg-default md:hidden"
+            className="btn-interactive inline-flex h-11 w-11 items-center justify-center rounded-lg border border-border bg-surface text-foreground hover:bg-default md:hidden"
             aria-label="Open menu"
           >
             <Menu className="h-5 w-5" />
@@ -93,7 +93,7 @@ export function Topbar({ onMenuPress }: TopbarProps) {
         <div className="relative">
           <button
             onClick={() => setDropdownOpen(!dropdownOpen)}
-            className="btn-interactive flex items-center gap-2 rounded-lg border border-border bg-surface p-1.5 text-left text-sm shadow-surface hover:bg-default/50"
+            className="btn-interactive flex min-h-11 items-center gap-2 rounded-lg border border-border bg-surface px-2.5 py-1.5 text-left text-sm hover:bg-default/50"
             aria-expanded={dropdownOpen}
             aria-haspopup="menu"
           >
@@ -102,7 +102,7 @@ export function Topbar({ onMenuPress }: TopbarProps) {
             </div>
             <div className="hidden md:block pr-1">
               <p className="text-xs font-semibold leading-none text-foreground">{user.name}</p>
-              <p className="text-[10px] text-muted font-medium mt-0.5 leading-none">{user.role}</p>
+              <p className="mt-0.5 text-[10px] font-medium leading-none text-muted">{user.role === "SALES_ADMIN" ? "Sales admin" : user.role === "ADMIN" ? "Admin" : "Sales"}</p>
             </div>
           </button>
 
@@ -126,7 +126,7 @@ export function Topbar({ onMenuPress }: TopbarProps) {
                   role="menuitem"
                 >
                   <KeyRound className="h-4 w-4 text-muted" />
-                  Change Password
+                  Change password
                 </button>
                 <div className="my-1 border-t border-separator" />
                 <button
@@ -135,7 +135,7 @@ export function Topbar({ onMenuPress }: TopbarProps) {
                   role="menuitem"
                 >
                   <LogOut className="h-4 w-4" />
-                  Log Out
+                  Log out
                 </button>
               </div>
             </>

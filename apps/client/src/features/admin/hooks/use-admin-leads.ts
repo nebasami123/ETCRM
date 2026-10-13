@@ -40,6 +40,7 @@ export function useAdminLeads() {
   const debouncedSearch = useDebouncedValue(leadFilters.search, 300);
   const [pagination, setPagination] = useState<Pagination>({ page: 1, pageSize: 20, total: 0, totalPages: 0 });
   const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const { success, danger } = useToast();
@@ -52,6 +53,7 @@ export function useAdminLeads() {
   const loadLeads = useCallback(async () => {
     try {
       setIsLoading(true);
+      setLoadError(false);
       const [leadsData, usersData] = await Promise.all([
         adminApi.getLeads({
           search: debouncedSearch,
@@ -72,6 +74,7 @@ export function useAdminLeads() {
       setSalesUsers(usersData);
       setSelectedIds((prev) => prev.filter((id) => leadsData.leads.some((lead) => lead.id === id)));
     } catch (err: unknown) {
+      setLoadError(true);
       danger(getErrorMessage(err, "Failed to load leads"));
     } finally {
       setIsLoading(false);
@@ -245,6 +248,7 @@ export function useAdminLeads() {
     leadFilters,
     pagination,
     isLoading,
+    loadError,
     isUploading,
     selectedIds,
     toggleSelect,

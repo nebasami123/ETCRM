@@ -47,7 +47,6 @@ export function SalesPlanner() {
 
   useEffect(() => {
     load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [range, start, end]);
 
   const createReminder = async () => {

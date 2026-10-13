@@ -87,7 +87,6 @@ function CampaignList() {
 
   useEffect(() => {
     load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status]);
 
   return (
@@ -857,7 +856,6 @@ function CampaignDetail({ campaignId }: { campaignId: string }) {
 
   useEffect(() => {
     load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [campaignId]);
 
   async function setStatus(status: "PAUSED" | "ACTIVE" | "CLOSED") {

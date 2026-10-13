@@ -11,7 +11,7 @@ export function DashboardShell({ children }: DashboardShellProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
 
   return (
-    <div className="min-h-screen bg-background text-foreground transition-colors duration-300">
+    <div className="crm-shell min-h-screen bg-background text-foreground transition-colors duration-300">
       {/* Sidebar Navigation */}
       <Sidebar
         collapsed={collapsed}
@@ -28,14 +28,14 @@ export function DashboardShell({ children }: DashboardShellProps) {
       >
         <Topbar onMenuPress={() => setMobileOpen(true)} />
 
-        <main className="flex-1 w-full max-w-7xl mx-auto px-4 py-6 sm:px-6 md:py-8">
-          <div className="w-full h-full animate-in fade-in slide-in-from-bottom-2 duration-300 ease-out-smooth">
+        <main className="mx-auto flex-1 w-full max-w-[1480px] px-4 py-5 sm:px-6 lg:px-8 lg:py-7">
+          <div className="crm-content w-full min-w-0">
             {children}
           </div>
         </main>
 
-        <footer className="w-full max-w-7xl mx-auto px-4 py-4 sm:px-6 border-t border-separator text-center sm:text-right text-[10px] text-muted">
-          <span>ETCRM Version 0.1.0 · Design Engineering Standard</span>
+        <footer className="mx-auto flex w-full max-w-[1480px] justify-center px-4 py-4 text-[11px] text-muted sm:justify-end sm:px-6 lg:px-8">
+          <span>ETCRM · Sales workspace</span>
         </footer>
       </div>
     </div>

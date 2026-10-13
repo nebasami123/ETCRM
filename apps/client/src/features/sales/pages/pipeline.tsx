@@ -414,6 +414,13 @@ export function SalesPipeline({ scope = "all", initialLeadId }: { scope?: LeadSc
         </div>
         {list.isLoading ? (
           <div className="p-12 text-center text-xs text-muted">Loading leads…</div>
+        ) : list.loadError ? (
+          <div className="p-12 text-center text-xs text-muted">
+            <p>Leads could not be loaded.</p>
+            <button type="button" onClick={() => list.refresh()} className="mt-3 rounded-lg border border-separator px-3 py-1.5 font-semibold text-foreground hover:bg-default/50">
+              Try again
+            </button>
+          </div>
         ) : list.leads.length === 0 ? (
           <div className="p-12 text-center text-xs text-muted">No leads match this view.</div>
         ) : (

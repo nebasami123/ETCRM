@@ -9,11 +9,13 @@ export function useAdminOverview() {
   const [aggregates, setAggregates] = useState<AdminOverviewAggregates | null>(null);
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const { danger } = useToast();
 
   async function load() {
     try {
       setIsLoading(true);
+      setLoadError(false);
       const [summaryData, aggregatesData, leaderboardData] = await Promise.all([
         adminApi.getSummary(),
         adminApi.getOverviewAggregates(),
@@ -23,6 +25,7 @@ export function useAdminOverview() {
       setAggregates(aggregatesData);
       setLeaderboard(leaderboardData);
     } catch (err: unknown) {
+      setLoadError(true);
       danger(getErrorMessage(err, "Could not load admin overview"));
     } finally {
       setIsLoading(false);
@@ -33,5 +36,5 @@ export function useAdminOverview() {
     load();
   }, []);
 
-  return { summary, aggregates, leaderboard, isLoading, refresh: load };
+  return { summary, aggregates, leaderboard, isLoading, loadError, refresh: load };
 }

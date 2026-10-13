@@ -15,7 +15,8 @@ import {
   Megaphone,
   NotebookPen,
   X,
-  ShieldCheck
+  ShieldCheck,
+  Settings
 } from "lucide-react";
 import { useAuth } from "../../hooks/use-auth";
 import { Logo } from "../../assets/logo";
@@ -75,7 +76,8 @@ export function Sidebar({
     { icon: Target, label: "Quotas", to: "/admin/quotas" },
     { icon: TrendingUp, label: "Performance", to: "/admin/performance" },
     { icon: FileBarChart, label: "Reports & Activity", to: "/admin/reports" },
-    { icon: ArrowLeftRight, label: "Transfer Requests", to: "/admin/transfers", badge: pendingTransfers }
+    { icon: ArrowLeftRight, label: "Transfer requests", to: "/admin/transfers", badge: pendingTransfers },
+    { icon: Settings, label: "Settings", to: "/admin/settings" }
   ];
 
   const salesNavItems: NavItem[] = [
@@ -84,7 +86,8 @@ export function Sidebar({
     { icon: Kanban, label: "My Leads", to: "/sales/leads" },
     { icon: Layers3, label: "Lead Pool", to: "/sales/lead-pool" },
     { icon: ListTodo, label: "Planner", to: "/sales/planner" },
-    { icon: NotebookPen, label: "Lead Log", to: "/sales/lead-log" }
+    { icon: NotebookPen, label: "Lead Log", to: "/sales/lead-log" },
+    { icon: Settings, label: "Settings", to: "/sales/settings" }
   ];
 
   const externalSalesNavItems: NavItem[] = [
@@ -103,8 +106,8 @@ export function Sidebar({
   const navItems = isAdmin ? adminNavItems : isSalesAdmin ? salesAdminNavItems : isExternalSales ? externalSalesNavItems : salesNavItems;
 
   const sidebarContent = (
-    <div className="flex h-full flex-col bg-surface border-r border-separator transition-all duration-300">
-      <div className="flex h-14 items-center justify-between px-4 border-b border-separator shrink-0">
+    <div className="crm-sidebar-content flex h-full flex-col bg-surface transition-colors">
+      <div className="flex h-16 shrink-0 items-center justify-between border-b border-separator px-4">
         <Logo showText={!collapsed} />
         {onCloseMobile && (
           <button
@@ -117,7 +120,7 @@ export function Sidebar({
         )}
       </div>
 
-      <nav className="flex-1 space-y-1.5 px-3 py-4 overflow-y-auto" data-scrollbar="thin">
+      <nav aria-label="Main navigation" className="flex-1 space-y-1 overflow-y-auto px-3 py-5" data-scrollbar="thin">
         {navItems.map((item) => (
           <SidebarItem
             key={item.to}
@@ -147,7 +150,7 @@ export function Sidebar({
   return (
     <>
       <aside
-        className={`hidden md:block h-screen fixed top-0 left-0 z-30 transition-all duration-300 ${
+        className={`crm-sidebar hidden md:block h-screen fixed top-0 left-0 z-30 transition-all duration-200 ${
           collapsed ? "w-17" : "w-60"
         }`}
       >
@@ -157,7 +160,7 @@ export function Sidebar({
       {mobileOpen && (
         <div className="md:hidden fixed inset-0 z-50 flex">
           <div
-            className="fixed inset-0 bg-background/50 backdrop-blur-sm transition-opacity duration-300 animate-in fade-in"
+            className="crm-mobile-scrim fixed inset-0 bg-background/50 transition-opacity duration-300 animate-in fade-in"
             onClick={onCloseMobile}
           />
           <div className="relative flex w-60 flex-col h-full bg-surface animate-in slide-in-from-left duration-250 ease-out-fluid shadow-overlay">

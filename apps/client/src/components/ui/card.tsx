@@ -7,6 +7,6 @@ interface CardProps {
 }
 
 export function Card({ children, className, style }: CardProps) {
-  return <div className={className} style={style}>{children}</div>;
+  return <div className={["crm-card", className].filter(Boolean).join(" ")} style={style}>{children}</div>;
 }
 

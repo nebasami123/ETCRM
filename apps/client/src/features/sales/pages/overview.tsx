@@ -17,7 +17,7 @@ import { LeadModal } from "./pipeline";
 
 const phaseColors: Record<LeadPhase, string> = {
   NEW: "var(--accent)",
-  CONTACTED: "#3b82f6",
+  CONTACTED: "var(--accent)",
   FOLLOW_UP: "var(--warning)",
   N_A: "var(--muted)",
   CLOSED_WON: "var(--success)",
@@ -25,8 +25,8 @@ const phaseColors: Record<LeadPhase, string> = {
 };
 
 export function SalesOverview() {
-  const { dashboard, isLoading } = useSalesOverview();
-  const { leaderboard, myStats, isLoading: leaderboardLoading } = useSalesLeaderboard();
+  const { dashboard, isLoading, loadError, refresh } = useSalesOverview();
+  const { leaderboard, myStats, isLoading: leaderboardLoading, loadError: leaderboardError, refresh: refreshLeaderboard } = useSalesLeaderboard();
   const [openLeadId, setOpenLeadId] = useState<string | null>(null);
 
   if (isLoading || leaderboardLoading) {
@@ -35,6 +35,18 @@ export function SalesOverview() {
         <LoadingSkeleton type="card" count={2} />
         <LoadingSkeleton type="table" count={4} />
       </div>
+    );
+  }
+
+  if (loadError || leaderboardError) {
+    return (
+      <Card className="crm-card p-8 text-center">
+        <h2 className="text-base font-medium text-foreground">Dashboard data is unavailable</h2>
+        <p className="mt-1 text-sm text-muted">Check the connection and try loading your overview again.</p>
+        <button type="button" onClick={() => { refresh(); refreshLeaderboard(); }} className="mt-4 rounded-lg bg-accent px-4 py-2 text-sm font-medium text-accent-foreground hover:opacity-90">
+          Try again
+        </button>
+      </Card>
     );
   }
 
@@ -90,10 +102,10 @@ export function SalesOverview() {
       {/* My Conversion Stats */}
       {myStats && (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <KPICard label="My Conversions" value={myStats.conversions} tone="success" />
-          <KPICard label="My Losses" value={myStats.losses} tone="danger" />
-          <KPICard label="Conversion Rate" value={`${myStats.conversionRate}%`} tone={myStats.conversionRate >= 50 ? "success" : "warning"} />
-          <KPICard label="Leads Claimed" value={myStats.claimedLeads} tone="accent" />
+          <KPICard label="My conversions" value={myStats.conversions} tone="success" />
+          <KPICard label="My losses" value={myStats.losses} tone="danger" />
+          <KPICard label="Conversion rate" value={`${myStats.conversionRate}%`} tone={myStats.conversionRate >= 50 ? "success" : "warning"} />
+          <KPICard label="Leads claimed" value={myStats.claimedLeads} tone="accent" />
         </div>
       )}
 
@@ -169,7 +181,7 @@ export function SalesOverview() {
 
       <div className="grid gap-6 lg:grid-cols-[1.2fr_.8fr]">
         <Card className="rounded-xl border border-separator bg-surface p-5 shadow-surface">
-          <div className="flex items-start justify-between gap-4"><div><p className="text-[10px] font-bold uppercase tracking-[0.16em] text-accent">Today&apos;s focus</p><h3 className="mt-1 text-sm font-bold text-foreground">Next commitments</h3></div><Link to="/sales/planner" className="inline-flex items-center gap-1 text-[11px] font-bold text-accent hover:underline">Open planner <ChevronRight className="h-3.5 w-3.5" /></Link></div>
+          <div className="flex items-start justify-between gap-4"><div><p className="text-[10px] font-medium text-muted">Today&apos;s focus</p><h3 className="mt-1 text-sm font-medium text-foreground">Next commitments</h3></div><Link to="/sales/planner" className="inline-flex items-center gap-1 text-sm font-medium text-accent hover:underline">Open planner <ChevronRight className="h-3.5 w-3.5" /></Link></div>
           <div className="mt-4 divide-y divide-separator">{dashboard?.reminders.length ? dashboard.reminders.map((reminder) => <div key={reminder.id} className="flex items-center gap-3 py-2.5"><span className="rounded-lg bg-accent/10 p-2 text-accent"><BellRing className="h-3.5 w-3.5" /></span><div className="min-w-0 flex-1"><p className="truncate text-xs font-bold text-foreground">{reminder.label}</p><p className="text-[10px] text-muted">{formatDateTime(reminder.dueAt)}</p></div></div>) : <p className="py-7 text-center text-xs text-muted">No personal reminders due today.</p>}</div>
         </Card>
         <Card className="rounded-xl border border-separator bg-linear-to-br from-success/8 to-surface p-5 shadow-surface"><CalendarClock className="h-5 w-5 text-success" /><p className="mt-5 text-2xl font-black text-foreground">{dashboard?.todoLeads.length ?? 0}</p><p className="mt-1 text-xs font-bold text-foreground">Lead actions due today</p><p className="mt-1 text-[11px] leading-relaxed text-muted">Appointments, follow-ups, and new leads are collected in your planner so nothing slips through.</p><Link to="/sales/planner" className="mt-4 inline-flex items-center gap-1 text-xs font-bold text-success hover:underline">Review schedule <ChevronRight className="h-3.5 w-3.5" /></Link></Card>
@@ -187,7 +199,7 @@ export function SalesOverview() {
           {/* Decorative Glow Shape */}
           <div className="absolute -right-6 -bottom-6 w-20 h-20 rounded-full bg-accent/3 opacity-0 group-hover:opacity-100 blur-xl pointer-events-none group-hover:scale-170 transition-all duration-500 ease-out-smooth" />
           
-          <h3 className="text-xs font-bold text-foreground uppercase tracking-wider">Metrics radar</h3>
+          <h3 className="text-base font-medium text-foreground">Metrics radar</h3>
           <p className="text-[11px] text-muted mt-1 mb-4">Operational balance across different categories.</p>
           <div className="h-64 w-full flex items-center justify-center">
             <RadarChart data={radarData} dataKey="score" angleKey="metric" />
@@ -197,12 +209,12 @@ export function SalesOverview() {
         {/* Pipeline stage breakdown */}
         <Card 
           className="premium-card group relative overflow-hidden bg-linear-to-br from-surface to-surface/95 p-5 shadow-surface hover:-translate-y-0.5 hover:shadow-lg transition-all duration-300 ease-out-smooth"
-          style={{ "--card-glow": "#3b82f6" } as React.CSSProperties}
+          style={{ "--card-glow": "var(--accent)" } as React.CSSProperties}
         >
           {/* Decorative Glow Shape */}
           <div className="absolute -right-6 -bottom-6 w-20 h-20 rounded-full bg-blue-500/3 opacity-0 group-hover:opacity-100 blur-xl pointer-events-none group-hover:scale-170 transition-all duration-500 ease-out-smooth" />
           
-          <h3 className="text-xs font-bold text-foreground uppercase tracking-wider">Pipeline Stage Breakdown</h3>
+          <h3 className="text-base font-medium text-foreground">Pipeline stage breakdown</h3>
           <p className="text-[11px] text-muted mt-1 mb-4">Ownership mix of leads assigned to you.</p>
           <div className="h-64 w-full flex flex-col justify-between">
             {phaseData.length > 0 ? (
@@ -237,7 +249,7 @@ export function SalesOverview() {
         {/* Decorative Glow Shape */}
         <div className="absolute -right-6 -bottom-6 w-20 h-20 rounded-full bg-success/3 opacity-0 group-hover:opacity-100 blur-xl pointer-events-none group-hover:scale-170 transition-all duration-500 ease-out-smooth" />
         
-        <h3 className="text-xs font-bold text-foreground uppercase tracking-wider">Team Leaderboard</h3>
+        <h3 className="text-base font-medium text-foreground">Team leaderboard</h3>
         <p className="text-[11px] text-muted mt-1 mb-4">See how you rank against other agents by conversions and activity.</p>
         <LeaderboardTable data={leaderboard} highlightUserId={myStats?.userId} />
       </Card>

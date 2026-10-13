@@ -53,7 +53,6 @@ export function BarChart({
   valueFormatter,
   barGap,
   maxBarSize = 32,
-  overlapping
 }: BarChartProps) {
   const isHorizontal = layout === "horizontal";
   const formatTick = (value: number) => (valueFormatter ? valueFormatter(value) : String(value));
